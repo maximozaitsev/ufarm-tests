@@ -1,0 +1,7 @@
+pytest
+playwright
+requests
+pydantic
+pydantic-settings
+python-dotenv
+pytest-xdist

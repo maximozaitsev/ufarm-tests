@@ -1,4 +1,25 @@
 from core.api.client import APIClient
+from core.api.models.pool import PoolListResponse
+
+
+def test_pools_list_validates_against_model(api_client):
+    # Сортировка по valueManaged desc происходит на стороне UI, не API.
+    # Этот тест проверяет, что структура ответа соответствует модели.
+    response = api_client.get(
+        "/pool",
+        params={"type": "public", "status": "active", "limit": 500},
+    )
+
+    assert response.status_code == 200
+
+    pools = PoolListResponse.model_validate(response.json()).data
+
+    print(f"\n  Total pools: {len(pools)}")
+    for pool in pools:
+        print(f"    '{pool.pool}' | valueManaged={pool.valueManaged} | status={pool.status} | type={pool.type}")
+
+    assert len(pools) > 0, "Pool list must not be empty"
+    assert all(int(p.valueManaged) >= 0 for p in pools), "All valueManaged must be >= 0"
 
 
 def test_pools_list_returns_active_public_pools(api_url):
@@ -22,9 +43,9 @@ def test_pools_list_returns_active_public_pools(api_url):
     assert isinstance(pools, list)
     assert len(pools) > 0
 
-    # временно выводим список пулов и их valueManaged
+    print(f"\n  Total pools returned: {len(pools)}")
     for pool in pools:
-        print(f"{pool['pool']}: {pool['valueManaged']}")
+        print(f"    '{pool['pool']}' | valueManaged={pool['valueManaged']} | status={pool['status']} | type={pool['type']}")
 
     # собираем список valueManaged и убеждаемся, что значения корректные (положительные int)
     value_managed_list = [int(p["valueManaged"]) for p in pools]

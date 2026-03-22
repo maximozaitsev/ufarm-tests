@@ -1,6 +1,7 @@
 import pytest
 from playwright.sync_api import sync_playwright
 from config.settings import settings
+from core.api.client import APIClient
 
 
 ENV_CONFIG = {
@@ -35,6 +36,18 @@ def pytest_addoption(parser):
         default=None,
         help="Override API base URL for tests (e.g. https://api.demo.ufarm.digital/api/v1)",
     )
+    parser.addoption(
+        "--test-pool-id",
+        action="store",
+        default=None,
+        help="Override test pool ID (UUID)",
+    )
+    parser.addoption(
+        "--test-wallet-address",
+        action="store",
+        default=None,
+        help="Override test wallet address (0x...)",
+    )
 
 
 @pytest.fixture(scope="session")
@@ -59,6 +72,29 @@ def api_url(request, env_config):
 @pytest.fixture(scope="session")
 def base_url(env_config):
     return env_config["base_url"]
+
+
+@pytest.fixture(scope="session")
+def api_client(api_url):
+    return APIClient(api_url)
+
+
+@pytest.fixture(scope="session")
+def test_pool_id(request):
+    override = request.config.getoption("--test-pool-id")
+    value = override or settings.test_pool_id
+    if not value:
+        raise ValueError("TEST_POOL_ID is not set. Add it to .env or pass --test-pool-id")
+    return value
+
+
+@pytest.fixture(scope="session")
+def test_wallet_address(request):
+    override = request.config.getoption("--test-wallet-address")
+    value = override or settings.test_wallet_address
+    if not value:
+        raise ValueError("TEST_WALLET_ADDRESS is not set. Add it to .env or pass --test-wallet-address")
+    return value
 
 
 @pytest.fixture(scope="session")

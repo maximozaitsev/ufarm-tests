@@ -7,3 +7,6 @@ class APIClient:
 
     def get(self, endpoint: str, **kwargs):
         return requests.get(f"{self.base_url}{endpoint}", **kwargs)
+
+    def post(self, endpoint: str, **kwargs):
+        return requests.post(f"{self.base_url}{endpoint}", **kwargs)

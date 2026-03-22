@@ -1,5 +1,9 @@
+import os
+from pathlib import Path
+
 import pytest
 from playwright.sync_api import sync_playwright
+
 from config.settings import settings
 from core.api.client import APIClient
 
@@ -95,6 +99,21 @@ def test_wallet_address(request):
     if not value:
         raise ValueError("TEST_WALLET_ADDRESS is not set. Add it to .env or pass --test-wallet-address")
     return value
+
+
+@pytest.fixture(scope="session", autouse=True)
+def allure_environment(env_name, api_url, base_url):
+    """Записывает environment.properties для Allure-отчёта."""
+    yield
+    results_dir = Path("allure-results")
+    if results_dir.exists():
+        props = (
+            f"Environment={env_name.upper()}\n"
+            f"API_URL={api_url}\n"
+            f"Base_URL={base_url}\n"
+            f"Python={os.popen('python --version').read().strip()}\n"
+        )
+        (results_dir / "environment.properties").write_text(props)
 
 
 @pytest.fixture(scope="session")

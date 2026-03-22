@@ -13,19 +13,24 @@
 
 > Тесты запускаются без кошелька. Проверяют корректность данных и контракт API.
 > Файлы: `tests/api/`
+>
+> Разметка тестов: `@pytest.mark.api` + `@pytest.mark.smoke|regression|extended`
+> Запуск по маркам: `pytest -m "api and smoke"`, `pytest -m "api and regression"` и т.д.
 
 ### 2.1 Список пулов — `tests/api/test_pools_list.py`
 
-#### `test_pools_list_returns_active_public_pools`
-- **Что:** API возвращает непустой список публичных активных пулов с корректными полями и типами.
-- **Как:** GET `/pool?type=public&status=active&limit=500`. Проверяет наличие `data`, статус 200, обязательные поля каждого пула, типы данных, фильтры (`status == active`, `type == public`).
-- **Зачем:** Базовый smoke-тест эндпоинта. Ловит грубые регрессии — пустой список, неверные статусы, сломанная структура.
-
-#### `test_pools_list_validates_against_model`
+#### `test_pools_list_validates_against_model` · smoke
 - **Что:** Структура каждого пула в списке соответствует Pydantic-модели `Pool`, все `valueManaged >= 0`.
 - **Как:** Передаёт весь ответ в `PoolListResponse.model_validate()`. Pydantic проверяет типы, обязательные поля, вложенные объекты.
 - **Зачем:** "Контракт" между тестами и API. Если бэкенд переименует поле или сменит тип — тест упадёт сразу, даже если другие тесты этого не заметят.
+- **Severity:** Normal
 - **Примечание:** Сортировка по `valueManaged` происходит на стороне UI, не API — на уровне API порядок не гарантирован.
+
+#### `test_pools_list_returns_active_public_pools` · regression
+- **Что:** API возвращает непустой список публичных активных пулов с корректными полями и типами.
+- **Как:** GET `/pool?type=public&status=active&limit=500`. Проверяет наличие `data`, статус 200, обязательные поля каждого пула, типы данных, фильтры (`status == active`, `type == public`).
+- **Зачем:** Детальная регрессия структуры. Ловит грубые регрессии — пустой список, неверные статусы, сломанная структура.
+- **Severity:** Normal
 
 ---
 
@@ -33,20 +38,23 @@
 
 > Тестовый пул: задаётся через `TEST_POOL_ID` в `.env` или флаг `--test-pool-id`.
 
-#### `test_pool_detail_returns_correct_structure`
+#### `test_pool_detail_returns_correct_structure` · smoke
 - **Что:** GET `/pool/{id}` возвращает объект конкретного пула с корректным `id`, статусом `active`, типом `public`, валидными блокчейн-адресами.
 - **Как:** Валидирует через `PoolDetailResponse`, затем проверяет: `pool.id == test_pool_id`, `poolAddress` и `fundAddress` начинаются с `0x`.
 - **Зачем:** Smoke-тест эндпоинта детального пула. Убеждаемся, что пул доступен и его ключевые атрибуты соответствуют ожидаемым.
+- **Severity:** Normal
 
-#### `test_pool_detail_financials_are_consistent`
+#### `test_pool_detail_financials_are_consistent` · regression
 - **Что:** Финансовые поля пула консистентны: `valueManaged = totalDeposited + revenue`, `poolMetric.nav == valueManaged`, `tokenPrice > 0`, `totalSupply > 0`.
 - **Как:** Парсит строковые числа в `int`, проверяет равенства. Также проверяет метрики пула.
 - **Зачем:** Бизнес-инвариант: стоимость пула = вложенное + доходность. Нарушение означает баг в расчётах на бэкенде или рассинхрон данных между сервисами. Такие баги трудно заметить вручную.
+- **Severity:** Critical
 
-#### `test_pool_detail_asset_allocation_sums_to_100`
+#### `test_pool_detail_asset_allocation_sums_to_100` · regression
 - **Что:** Сумма `allocation` по всем активам пула составляет ~100% (допуск ±1% на округление).
 - **Как:** Суммирует `allocation` по всем элементам `assetAllocation`, проверяет диапазон `[99.0, 101.0]`.
 - **Зачем:** Инвариант целостности данных. Если сумма не 100% — какой-то актив не учтён или значения считаются неверно. Для финансового приложения это критично.
+- **Severity:** Normal
 
 ---
 
@@ -54,20 +62,23 @@
 
 > Тестовый кошелёк: задаётся через `TEST_WALLET_ADDRESS` в `.env` или флаг `--test-wallet-address`.
 
-#### `test_portfolio_returns_correct_structure`
+#### `test_portfolio_returns_correct_structure` · smoke
 - **Что:** GET `/user/portfolio/{address}` возвращает корректную структуру: суммарные депозиты и выводы ≥ 0, список пулов, числовые `points`.
 - **Как:** Полная Pydantic-валидация через `Portfolio`. Дополнительные проверки типов и минимальных значений.
 - **Зачем:** Базовый контракт портфолио-эндпоинта. Первая линия защиты от структурных изменений в API.
+- **Severity:** Normal
 
-#### `test_portfolio_pool_stats_are_consistent`
+#### `test_portfolio_pool_stats_are_consistent` · regression
 - **Что:** Для каждого пула в портфолио выполняется формула баланса: `totalBalance = allDeposited − allWithdrawals + realizedPnL + unrealizedPnL`.
 - **Как:** Итерирует по всем пулам, считает правую часть формулы, сравнивает с `totalBalance`. При ошибке выводит конкретные числа.
 - **Зачем:** Главная финансовая инвариант для инвестора. Если баланс не сходится — бэкенд считает неверно или данные из разных источников рассинхронизированы. Такие баги критичны и плохо видны при ручном тестировании.
+- **Severity:** Critical
 
-#### `test_portfolio_totals_match_pool_stats`
+#### `test_portfolio_totals_match_pool_stats` · regression
 - **Что:** Верхнеуровневые поля портфолио (`allDeposited`, `allWithdrawals`) равны сумме аналогичных полей по всем пулам.
 - **Как:** Суммирует `poolStat.allDeposited` и `poolStat.allWithdrawals` по всем пулам, сравнивает с `portfolio.allDeposited` и `portfolio.allWithdrawals`.
 - **Зачем:** Агрегация не должна расходиться с деталями. Если общий депозит 6000, а сумма по пулам 5000 — потеряли 1000. Критический баг для финансового приложения.
+- **Severity:** Critical
 
 ---
 
@@ -124,11 +135,53 @@
 
 ---
 
-## 6. CI/CD (Шаг 5 — запланировано)
+## 6. CI/CD и Allure-отчёты (реализовано)
 
-- GitHub Actions workflow: запуск API-тестов и UI-тестов на DEMO.
-- Secrets: `TEST_POOL_ID`, `TEST_WALLET_ADDRESS`, приватный ключ кошелька.
-- Артефакты: Playwright report при падении UI-тестов.
+### Запуск через GitHub Actions
+
+Файл: `.github/workflows/tests.yml`
+
+Запуск — только вручную (`workflow_dispatch`) через кнопку **Run workflow** в GitHub Actions.
+
+**Параметры запуска:**
+
+| Параметр | Значения | Описание |
+|---|---|---|
+| `test_type` | `api`, `ui`, `trx`, `all` | Тип тестов |
+| `test_suite` | `smoke`, `regression`, `extended`, `all` | Набор тестов |
+| `environment` | `demo` | Окружение |
+
+Названия наборов задают `pytest.ini` marks:
+- `smoke` — критичные happy-path проверки
+- `regression` — стандартные регрессионные проверки
+- `extended` — глубокие и edge-case проверки
+
+Пример: `test_type=api, test_suite=smoke` → `pytest -m "api and smoke"`
+
+Secrets: `TEST_POOL_ID`, `TEST_WALLET_ADDRESS` (добавить в Settings → Secrets → Actions).
+
+### Allure-отчёты
+
+- `allure-pytest` генерирует результаты в `allure-results/`
+- `simple-elf/allure-report-action` строит HTML-отчёт с историей
+- `peaceiris/actions-gh-pages` публикует на **GitHub Pages** (ветка `gh-pages`)
+- История хранится 50 последних прогонов — даёт **trendline** и **flaky test** статистику
+
+**Allure-разметка тестов:**
+- `@allure.feature` / `@allure.story` / `@allure.title` — на английском
+- `with allure.step(...)` — на русском, содержит конкретные значения
+- `@allure.severity` — CRITICAL / NORMAL (финансовые инварианты → CRITICAL)
+- `@allure.link` — ссылка на Swagger
+- `allure.attach(JSON)` — тело ответа прикреплено к каждому тесту
+- `environment.properties` — в отчёте отображается окружение, URL, версия Python
+
+**Активировать GitHub Pages:** Settings → Pages → Source → ветка `gh-pages`.
+
+**Локальный просмотр отчёта:**
+```bash
+pytest tests/api/ -v --alluredir=allure-results
+allure serve allure-results
+```
 
 ---
 
@@ -147,4 +200,6 @@
 - Вкладки `Transactions` и `Actions` на странице пула.
 - Тесты для модуля фонда: создание и редактирование пулов, управление активами.
 - Тестирование смарт-контрактов и ончейн-транзакций.
-- **Allure-отчёты на GitHub Actions с полной историей тестов**: подключить `allure-pytest`, публиковать HTML-отчёт на GitHub Pages после каждого запуска, хранить историю прогонов (trend, flaky tests) через артефакты между запусками.
+- Allure: `@allure.issue` — ссылки на баги в трекере (когда появятся тикеты).
+- Allure: `@allure.testcase` — ссылки на тест-кейсы в Confluence/TestRail.
+- Allure: `categories.json` — кастомные категории падений (infrastructure error, product bug и т.д.).

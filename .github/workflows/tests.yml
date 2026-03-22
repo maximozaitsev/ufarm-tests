@@ -1,0 +1,102 @@
+name: Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: "Test type"
+        required: true
+        type: choice
+        options:
+          - api
+          - ui
+          - trx
+          - all
+        default: api
+      test_suite:
+        description: "Test suite"
+        required: true
+        type: choice
+        options:
+          - smoke
+          - regression
+          - extended
+          - all
+        default: smoke
+      environment:
+        description: "Environment"
+        required: true
+        type: choice
+        options:
+          - demo
+        default: demo
+
+jobs:
+  tests:
+    name: "${{ inputs.test_type }} / ${{ inputs.test_suite }} @ ${{ inputs.environment }}"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install Playwright browsers
+        run: playwright install chromium
+        if: ${{ inputs.test_type == 'ui' || inputs.test_type == 'all' }}
+
+      - name: Build pytest mark expression
+        id: marks
+        run: |
+          TYPE="${{ inputs.test_type }}"
+          SUITE="${{ inputs.test_suite }}"
+          if [ "$TYPE" == "all" ] && [ "$SUITE" == "all" ]; then
+            echo "expr=" >> $GITHUB_OUTPUT
+          elif [ "$TYPE" == "all" ]; then
+            echo "expr=-m $SUITE" >> $GITHUB_OUTPUT
+          elif [ "$SUITE" == "all" ]; then
+            echo "expr=-m $TYPE" >> $GITHUB_OUTPUT
+          else
+            echo "expr=-m '$TYPE and $SUITE'" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run tests
+        run: pytest tests/ -v --alluredir=allure-results --env=${{ inputs.environment }} ${{ steps.marks.outputs.expr }}
+        env:
+          TEST_POOL_ID: ${{ secrets.TEST_POOL_ID }}
+          TEST_WALLET_ADDRESS: ${{ secrets.TEST_WALLET_ADDRESS }}
+
+      # Загружаем историю предыдущих прогонов из gh-pages для trendline и flaky-статистики
+      - name: Load Allure history
+        uses: actions/checkout@v4
+        if: always()
+        continue-on-error: true
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      - name: Generate Allure report
+        uses: simple-elf/allure-report-action@v1.9
+        if: always()
+        with:
+          allure_results: allure-results
+          gh_pages: gh-pages
+          allure_report: allure-report
+          allure_history: allure-history
+          keep_reports: 50
+
+      - name: Deploy report to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        if: always()
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: allure-history

@@ -6,7 +6,7 @@
   },
   {
     "pool": "REF TEST",
-    "valueManaged": "21044899",
+    "valueManaged": "21043636",
     "status": "active"
   },
   {
@@ -16,22 +16,22 @@
   },
   {
     "pool": "scp",
-    "valueManaged": "8812865",
+    "valueManaged": "8811500",
     "status": "active"
   },
   {
     "pool": "DeFi USDC only",
-    "valueManaged": "23311094",
+    "valueManaged": "23301630",
     "status": "active"
   },
   {
     "pool": "Every Day Pool One",
-    "valueManaged": "16015741",
+    "valueManaged": "16010806",
     "status": "active"
   },
   {
     "pool": "Demo Pool 1st",
-    "valueManaged": "3017146",
+    "valueManaged": "3016935",
     "status": "active"
   }
 ]

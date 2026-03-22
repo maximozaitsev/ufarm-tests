@@ -73,3 +73,6 @@ secrets.json
 
 # Misc
 .cache/
+
+g.json
+portfolio.json

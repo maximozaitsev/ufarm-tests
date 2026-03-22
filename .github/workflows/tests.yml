@@ -50,8 +50,8 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Install Playwright browsers
-        run: playwright install chromium
         if: ${{ inputs.test_type == 'ui' || inputs.test_type == 'all' }}
+        run: playwright install chromium
 
       - name: Build pytest mark expression
         id: marks
@@ -74,8 +74,14 @@ jobs:
           TEST_POOL_ID: ${{ secrets.TEST_POOL_ID }}
           TEST_WALLET_ADDRESS: ${{ secrets.TEST_WALLET_ADDRESS }}
 
-      # Загружаем историю предыдущих прогонов из gh-pages для trendline и flaky-статистики
-      - name: Load Allure history
+      - name: Install Allure CLI
+        if: always()
+        run: |
+          curl -sL https://github.com/allure-framework/allure2/releases/download/2.27.0/allure-2.27.0.tgz | tar -xz
+          sudo mv allure-2.27.0 /opt/allure
+          sudo ln -s /opt/allure/bin/allure /usr/local/bin/allure
+
+      - name: Load Allure history from gh-pages
         uses: actions/checkout@v4
         if: always()
         continue-on-error: true
@@ -83,15 +89,16 @@ jobs:
           ref: gh-pages
           path: gh-pages
 
-      - name: Generate Allure report
-        uses: simple-elf/allure-report-action@v1.9
+      - name: Copy previous history into results
         if: always()
-        with:
-          allure_results: allure-results
-          gh_pages: gh-pages
-          allure_report: allure-report
-          allure_history: allure-history
-          keep_reports: 50
+        run: |
+          if [ -d gh-pages/history ]; then
+            cp -r gh-pages/history allure-results/history
+          fi
+
+      - name: Generate Allure report
+        if: always()
+        run: allure generate allure-results -o allure-report --clean
 
       - name: Deploy report to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
@@ -99,4 +106,4 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_branch: gh-pages
-          publish_dir: allure-history
+          publish_dir: allure-report

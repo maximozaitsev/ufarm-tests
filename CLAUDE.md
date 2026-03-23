@@ -114,6 +114,18 @@ TEST_WALLET_ADDRESS=<0x...>
 - `@allure.severity` — CRITICAL для финансовых инвариантов, NORMAL для структуры
 - `@allure.link` — ссылка на Swagger
 
+## Скриншоты в Allure (UI-тесты)
+
+**При падении** — автоматически, ничего делать не нужно (`tests/ui/conftest.py`, фикстура `screenshot_on_failure`).
+
+**В конкретном шаге вручную** (например после открытия модалки):
+```python
+with allure.step("Открылась модалка"):
+    modal.wait_for(state="visible", timeout=5_000)
+    allure.attach(page.screenshot(), name="Modal opened", attachment_type=allure.attachment_type.PNG)
+    assert modal.is_visible()
+```
+
 ## CI/CD
 
 GitHub Actions, только ручной запуск (`workflow_dispatch`).

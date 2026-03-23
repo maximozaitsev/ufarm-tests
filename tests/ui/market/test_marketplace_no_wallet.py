@@ -184,6 +184,11 @@ def test_connect_wallet_button_opens_modal(page, base_url):
     with allure.step("Открылась модалка подключения кошелька (Reown)"):
         modal = mp.connect_wallet_modal()
         modal.wait_for(state="visible", timeout=5_000)
+        allure.attach(
+            page.screenshot(),
+            name="Connect Wallet modal",
+            attachment_type=allure.attachment_type.PNG,
+        )
         assert modal.is_visible(), "Connect Wallet modal did not appear"
 
 

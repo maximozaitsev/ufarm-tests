@@ -27,6 +27,16 @@ ENV_CONFIG = {
 }
 
 
+@pytest.hookimpl(tryfirst=True, hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    """Сохраняет результат каждой фазы теста в item.rep_<when>.
+    Нужно для фикстур, которые проверяют упал ли тест (например screenshot_on_failure).
+    """
+    outcome = yield
+    rep = outcome.get_result()
+    setattr(item, f"rep_{rep.when}", rep)
+
+
 def pytest_addoption(parser):
     parser.addoption(
         "--env",

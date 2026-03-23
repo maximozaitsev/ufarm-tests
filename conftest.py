@@ -127,8 +127,12 @@ def leaderboard_api_client():
 
 @pytest.fixture(scope="session")
 def browser():
+    # HEADED=1  — запустить в видимом браузере (для отладки)
+    # SLOWMO=500 — замедлить каждое действие на N мс (вместе с HEADED)
+    headed = os.environ.get("HEADED", "0") == "1"
+    slow_mo = int(os.environ.get("SLOWMO", "0"))
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        browser = p.chromium.launch(headless=not headed, slow_mo=slow_mo)
         yield browser
         browser.close()
 

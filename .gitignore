@@ -35,7 +35,7 @@ var/
 coverage.xml
 htmlcov/
 
-# Allure (когда подключим)
+# Allure
 allure-results/
 allure-report/
 
@@ -62,7 +62,7 @@ test-results/
 # Local configs
 config/local_settings.py
 
-# Node (если вдруг появится)
+# Node
 node_modules/
 
 # Web3 / keys
@@ -74,7 +74,8 @@ secrets.json
 # Misc
 .cache/
 
+# Временные файлы разведки (не для коммита)
 g.json
 portfolio.json
 points.ts
-CLAUDE.md
+scripts/markup/

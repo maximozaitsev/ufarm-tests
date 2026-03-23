@@ -82,14 +82,39 @@
 
 ---
 
-## 3. UI-тесты без кошелька (Шаг 2 — запланировано)
+## 3. UI-тесты без кошелька (Шаг 2 — реализовано)
 
-> Playwright, без подключения кошелька. Проверяют навигацию и структуру страниц.
+> Playwright (Chromium, headless), без подключения кошелька. Проверяют навигацию и структуру страниц.
+> Файл: `tests/ui/market/test_marketplace_no_wallet.py`
+> Разметка: `@pytest.mark.ui` + `@pytest.mark.smoke`
 
-- Загрузка `/marketplace`: хедер, табы, список пулов.
-- Переход на страницу пула из списка: URL, наличие кнопок DEPOSIT/WITHDRAW.
-- Сортировка карточек пулов по `valueManaged` desc на стороне UI.
-- Состояние без кошелька: нет доступа к портфолио, кнопка `Connect wallet`.
+#### `test_marketplace_page_loads` · smoke · CRITICAL
+- **Что:** Страница `/marketplace` открывается, карточки пулов загружаются, `<title>` == `"Marketplace"`.
+
+#### `test_header_elements_visible` · smoke · NORMAL
+- **Что:** В хедере видны: логотип UFarm, таб `All products`, таб `My portfolio`, кнопка `Connect Wallet`.
+
+#### `test_pool_cards_displayed` · smoke · CRITICAL
+- **Что:** На странице отображается минимум 1 карточка пула.
+
+#### `test_pool_card_navigation` · smoke · CRITICAL
+- **Что:** Клик на карточку пула → переход на URL вида `/marketplace/pool/{uuid}`.
+
+#### `test_connect_wallet_button_opens_modal` · smoke · NORMAL
+- **Что:** Клик на `Connect Wallet` в хедере → появляется модалка Reown (`w3m-modal-card`).
+
+#### `test_pool_page_elements_visible` · smoke · CRITICAL
+- **Что:** На странице пула виден `h1` с названием пула, блок депозита, кнопка `Connect wallet to deposit`.
+
+#### `test_pool_page_history_tabs_visible` · smoke · NORMAL
+- **Что:** На странице пула присутствуют ARIA-табы `Transactions` и `actions`.
+
+#### `test_my_portfolio_no_wallet` · smoke · NORMAL
+- **Что:** Клик на таб `My portfolio` → появляется модалка Reown (навигации на `/my-portfolio` не происходит без кошелька).
+
+> **Примечание по селекторам:** Используются ARIA-роли (`get_by_role`), видимый текст (`get_by_text`) и классы UI-библиотеки Mantine (`.mantine-Paper-root`). CSS-классы с хэшами CSS-модулей (`_offer_1uf7l_1` и т.п.) не используются — они нестабильны между сборками.
+
+> **Отладка:** `HEADED=1 SLOWMO=800 pytest tests/ui/ -v -s` — в видимом браузере. `PWDEBUG=1` — Playwright Inspector.
 
 ---
 

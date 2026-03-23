@@ -22,7 +22,7 @@ ENV_CONFIG = {
     "prod_eth": {
         "base_url": "https://black.ufarm.digital",
         "fund_url": "https://efund.ufarm.digital/fund",
-        "api_url": "https://api.ufarm.digital/api/v1",
+        "api_url": "https://api.ufarm.digital/api/v2",
     },
 }
 
@@ -114,6 +114,15 @@ def allure_environment(env_name, api_url, base_url):
             f"Python={os.popen('python --version').read().strip()}\n"
         )
         (results_dir / "environment.properties").write_text(props)
+
+
+PROD_ETH_API_URL = "https://api.ufarm.digital/api/v2"
+
+
+@pytest.fixture(scope="session")
+def leaderboard_api_client():
+    """APIClient для лидерборда и портфолио — всегда PROD ETH (v2), независимо от --env."""
+    return APIClient(PROD_ETH_API_URL)
 
 
 @pytest.fixture(scope="session")

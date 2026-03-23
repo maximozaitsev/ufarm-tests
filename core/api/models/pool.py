@@ -86,7 +86,7 @@ class Pool(BaseModel):
     poolAddress: str
     poolAdminAddress: Optional[str] = None
     fundAddress: str
-    poolMetric: PoolMetric
+    poolMetric: Optional[PoolMetric] = None
     assetAllocation: list[AssetAllocation]
     createdAt: Optional[str] = None
     strategyLaunched: Optional[str] = None

@@ -168,7 +168,10 @@ Secrets: `TEST_POOL_ID`, `TEST_WALLET_ADDRESS` (добавить в Settings →
 - История хранится 50 последних прогонов — даёт **trendline** и **flaky test** статистику
 
 **Allure-разметка тестов:**
-- `@allure.feature` / `@allure.story` / `@allure.title` — на английском
+- `@allure.epic` — модуль: `"Market"` или `"Fund"`
+- `@allure.feature` — тип: `"API"` или `"UI"`
+- `@allure.story` — фича: `"Leaderboard"`, `"Deposit"` и т.д.
+- `@allure.epic` / `@allure.feature` / `@allure.story` / `@allure.title` — на английском
 - `with allure.step(...)` — на русском, содержит конкретные значения
 - `@allure.severity` — CRITICAL / NORMAL (финансовые инварианты → CRITICAL)
 - `@allure.link` — ссылка на Swagger

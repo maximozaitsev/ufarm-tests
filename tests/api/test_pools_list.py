@@ -8,6 +8,7 @@ from core.api.models.pool import PoolListResponse
 
 @pytest.mark.api
 @pytest.mark.smoke
+@allure.epic("Market")
 @allure.feature("API")
 @allure.story("Pool List")
 @allure.title("Pool list response matches Pydantic model")
@@ -47,6 +48,7 @@ def test_pools_list_validates_against_model(api_client):
 
 @pytest.mark.api
 @pytest.mark.regression
+@allure.epic("Market")
 @allure.feature("API")
 @allure.story("Pool List")
 @allure.title("Pool list returns only active public pools with valid fields")

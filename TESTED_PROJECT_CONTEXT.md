@@ -124,7 +124,7 @@
   - Отчёты: `allure-pytest` → HTML-отчёт на GitHub Pages с историей прогонов.
   - Модели данных: `pydantic` (валидация API-ответов).
 - **Allure-разметка**:
-  - `@allure.feature` / `@allure.story` / `@allure.title` — на английском.
+  - `@allure.epic` — модуль (`"Market"`, `"Fund"`); `@allure.feature` — тип (`"API"`, `"UI"`); `@allure.story` — фича (`"Leaderboard"`, `"Deposit"` и т.д.) — все на английском.
   - `with allure.step(...)` — на русском, содержат конкретные значения для диагностики.
   - `@allure.severity` — CRITICAL (финансовые инварианты), NORMAL (структура).
   - `@allure.link` — ссылка на Swagger.

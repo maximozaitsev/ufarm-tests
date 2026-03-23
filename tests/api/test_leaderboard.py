@@ -11,6 +11,7 @@ ETHEREUM_ADDRESS_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
 
 @pytest.mark.api
 @pytest.mark.smoke
+@allure.epic("Market")
 @allure.feature("API")
 @allure.story("Leaderboard")
 @allure.title("Leaderboard response matches Pydantic model")
@@ -51,6 +52,7 @@ def test_leaderboard_returns_correct_structure(leaderboard_api_client):
 
 @pytest.mark.api
 @pytest.mark.regression
+@allure.epic("Market")
 @allure.feature("API")
 @allure.story("Leaderboard")
 @allure.title("Leaderboard entries are sorted by points descending")
@@ -98,6 +100,7 @@ def test_leaderboard_sorted_by_points_desc(leaderboard_api_client):
 
 @pytest.mark.api
 @pytest.mark.regression
+@allure.epic("Market")
 @allure.feature("API")
 @allure.story("Leaderboard")
 @allure.title("Leaderboard pagination invariants hold across all pages")
@@ -143,6 +146,7 @@ def test_leaderboard_pagination_invariants(leaderboard_api_client):
 
 @pytest.mark.api
 @pytest.mark.regression
+@allure.epic("Market")
 @allure.feature("API")
 @allure.story("Leaderboard")
 @allure.title("Leaderboard user addresses are unique across all pages")
@@ -178,6 +182,7 @@ def test_leaderboard_user_addresses_are_unique(leaderboard_api_client):
 
 @pytest.mark.api
 @pytest.mark.regression
+@allure.epic("Market")
 @allure.feature("API")
 @allure.story("Leaderboard")
 @allure.title("Leaderboard user addresses are valid Ethereum addresses")

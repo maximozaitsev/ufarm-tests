@@ -9,6 +9,7 @@ from core.api.models.portfolio import Portfolio
 
 @pytest.mark.api
 @pytest.mark.smoke
+@allure.epic("Market")
 @allure.feature("API")
 @allure.story("Points")
 @allure.title("Portfolio points match leaderboard points for top addresses")

@@ -6,6 +6,7 @@ from core.api.client import APIClient
 
 @pytest.mark.api
 @pytest.mark.smoke
+@allure.epic("Market")
 @allure.feature("API")
 @allure.story("Healthcheck")
 @allure.title("API documentation endpoint is available")

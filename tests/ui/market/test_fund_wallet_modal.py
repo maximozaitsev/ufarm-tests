@@ -21,22 +21,39 @@ def open_fund_wallet_modal(page, mp: MarketplacePage, modal: FundWalletModal):
     Возможные модалки по клику Deposit с нулевым балансом:
       - Fund wallet  — ожидаемая (баланс < min deposit)
       - PROOF OF AGREEMENT / Terms — требует принятия условий, пропускаем
-      - Обычный Deposit  — значит порог не сработал, пропускаем
+      - Обычный Deposit → может перейти в Fund wallet (нужно подождать)
+
+    В headless режиме приложение может сначала показать DEPOSIT-модалку и только после
+    проверки баланса перейти в Fund wallet — ждём конкретный heading, не читаем сразу.
     """
+    # Закрываем предыдущую модалку если осталась открытой (module-scope fixture)
+    if page.locator(".mantine-Modal-content").is_visible():
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(400)
+
     mp.wait_for_pool_page()
     mp.deposit_button().click()
     modal.wait_for()
 
+    # После открытия любой модалки приложение делает запрос баланса и может переключить
+    # модалку на Fund wallet. Ждём heading на уровне всей страницы.
+    # Первый вызов: ~15 сек (on-chain RPC). Последующие: быстро (app кеш).
+    try:
+        page.get_by_role("heading", name="Fund wallet").wait_for(
+            state="visible", timeout=20_000
+        )
+        return  # Fund wallet modal открылась корректно
+    except Exception:
+        pass
+
+    # Fund wallet так и не появился — фиксируем что открылось и пропускаем
     headings = page.locator(".mantine-Modal-content").first.locator(
         "h1, h2, h3, h4"
     ).all_inner_texts()
-    heading_text = " ".join(h.strip().lower() for h in headings)
-
-    if "fund wallet" not in heading_text:
-        pytest.skip(
-            f"Expected 'Fund wallet' modal but got: {headings}. "
-            "Modal condition not met (terms pending or balance above threshold)."
-        )
+    pytest.skip(
+        f"Expected 'Fund wallet' modal but got: {headings}. "
+        "Modal condition not met (terms pending or balance above threshold)."
+    )
 
 
 @allure.epic("Market")

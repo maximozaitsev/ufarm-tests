@@ -234,18 +234,26 @@ def page_with_wallet_on_single_token_pool(browser, base_url, pool_single_token_i
     page.close()
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def page_with_zero_wallet_on_min_deposit_pool(browser, base_url, pool_min_deposit_id, wallet_zero_balance):
     """Playwright Page на странице пула с min deposit, кошелёк с нулевым балансом.
+
+    module-scope: страница загружается один раз для всего модуля.
+    Первый клик Deposit занимает ~15 сек (on-chain баланс-чек), последующие — быстро (кеш).
 
     Используется для теста модалки Fund wallet.
     """
     from core.ui.wallet_injection import inject_wallet
 
     page = browser.new_page()
-    page.goto(f"{base_url}/marketplace/pool/{pool_min_deposit_id}", wait_until="networkidle")
+    # "networkidle" недостижим для Pool C — пул делает долгие polling-запросы.
+    page.goto(f"{base_url}/marketplace/pool/{pool_min_deposit_id}", wait_until="domcontentloaded", timeout=60_000)
+    page.get_by_role("heading", level=1).wait_for(timeout=30_000)
     inject_wallet(page, wallet_zero_balance)
-    page.wait_for_load_state("networkidle", timeout=15_000)
+    try:
+        page.wait_for_load_state("networkidle", timeout=10_000)
+    except Exception:
+        pass
     yield page
     page.close()
 

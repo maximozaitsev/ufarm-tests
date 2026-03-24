@@ -1,0 +1,2 @@
+
+  Пул: 'DeFi USDC only'

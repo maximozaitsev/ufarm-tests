@@ -1,0 +1,10 @@
+
+  Wallet: 0xd2692CCEbC8d34EFd74185908956e5f75FF71cA3, pools: 1
+
+  Pool: 'REF TEST' (id=f1b36414-7275-497f-abcb-6f19cb9566f4)
+    allDeposited   = 6000000
+    allWithdrawals = 2998785
+    realizedPnL    = -1215
+    unrealizedPnL  = -8949
+    totalBalance   = 2991051
+    check: 6000000 - 2998785 + -1215 + -8949 = 2991051  (expected == 2991051)

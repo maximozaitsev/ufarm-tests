@@ -1,37 +1,37 @@
 [
   {
     "pool": "smoke_11_03-3",
-    "valueManaged": "2100253",
+    "valueManaged": "2100619",
     "status": "active"
   },
   {
     "pool": "REF TEST",
-    "valueManaged": "21043636",
+    "valueManaged": "21040735",
     "status": "active"
   },
   {
     "pool": "Target APY pool",
-    "valueManaged": "3251201",
+    "valueManaged": "3251465",
     "status": "active"
   },
   {
     "pool": "scp",
-    "valueManaged": "8811500",
+    "valueManaged": "8836272",
     "status": "active"
   },
   {
     "pool": "DeFi USDC only",
-    "valueManaged": "23301630",
+    "valueManaged": "23385952",
     "status": "active"
   },
   {
     "pool": "Every Day Pool One",
-    "valueManaged": "16010806",
+    "valueManaged": "16103129",
     "status": "active"
   },
   {
     "pool": "Demo Pool 1st",
-    "valueManaged": "3016935",
+    "valueManaged": "3016271",
     "status": "active"
   }
 ]

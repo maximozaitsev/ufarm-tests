@@ -73,6 +73,9 @@ jobs:
         env:
           TEST_POOL_ID: ${{ secrets.TEST_POOL_ID }}
           TEST_WALLET_ADDRESS: ${{ secrets.TEST_WALLET_ADDRESS }}
+          POOL_SINGLE_TOKEN_ID: ${{ secrets.POOL_SINGLE_TOKEN_ID }}
+          POOL_MIN_DEPOSIT_ID: ${{ secrets.POOL_MIN_DEPOSIT_ID }}
+          WALLET_ZERO_BALANCE: ${{ secrets.WALLET_ZERO_BALANCE }}
 
       - name: Install Allure CLI
         if: always()

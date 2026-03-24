@@ -209,4 +209,3 @@ def test_fund_wallet_modal_has_receive_funds(page_with_zero_wallet_on_min_deposi
 
     with allure.step("Кнопка 'receive funds' видна"):
         assert modal.receive_funds_button().is_visible(), "'receive funds' button not visible"
-test_fund_wallet_modal_title

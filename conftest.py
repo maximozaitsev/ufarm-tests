@@ -155,6 +155,25 @@ def page(browser):
 
 
 @pytest.fixture
+def page_with_wallet_on_pool(browser, base_url, test_pool_id, test_wallet_address):
+    """Playwright Page на странице тестового пула с программно подключённым кошельком.
+
+    Открывает /marketplace/pool/{test_pool_id}, инжектирует кошелёк.
+    Используется для тестов Deposit/Withdrawal кнопок и модалок.
+    """
+    from core.ui.wallet_injection import inject_wallet
+
+    page = browser.new_page()
+    page.goto(f"{base_url}/marketplace/pool/{test_pool_id}", wait_until="networkidle")
+    inject_wallet(page, test_wallet_address)
+    # После inject_wallet приложение делает запросы за балансом пользователя —
+    # ждём их завершения, чтобы Withdrawal кнопка появилась.
+    page.wait_for_load_state("networkidle", timeout=15_000)
+    yield page
+    page.close()
+
+
+@pytest.fixture
 def page_with_wallet(browser, base_url, test_wallet_address):
     """Playwright Page с программно подключённым тестовым кошельком.
 

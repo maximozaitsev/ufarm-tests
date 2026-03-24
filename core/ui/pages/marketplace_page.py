@@ -69,6 +69,33 @@ class MarketplacePage(BasePage):
         """ARIA-табы истории на странице пула (Transactions, actions и др.)."""
         return self.page.get_by_role("tab")
 
+    # ── Pool page — action buttons (with wallet connected) ───────────────────
+    # Кнопки — div-элементы (не ARIA button), поэтому get_by_text.
+
+    def deposit_button(self):
+        """Кнопка 'Deposit' на странице пула (видна только с подключённым кошельком).
+
+        Используем get_by_text — get_by_role("button", name="Deposit") не подходит,
+        потому что совпадает с кнопкой подтверждения внутри открытой модалки депозита.
+        """
+        return self.page.get_by_text("Deposit", exact=True).first
+
+    def withdraw_button(self):
+        """Кнопка 'Withdraw' на странице пула (видна только при ненулевом балансе).
+
+        Примечание: "Withdrawal" (с -al) — это тип операции в таблице истории транзакций,
+        не эта кнопка. Кнопка действия называется "Withdraw".
+        """
+        return self.page.get_by_role("button", name="Withdraw")
+
+    def wait_for_withdraw_button(self, timeout: int = 15_000):
+        """Ждёт появления кнопки Withdraw.
+
+        Кнопка рендерится только после загрузки баланса пользователя по API —
+        это занимает время после inject_wallet.
+        """
+        self.withdraw_button().wait_for(state="visible", timeout=timeout)
+
     # ── Connect Wallet modal (Reown / Web3Modal) ──────────────────────────────
     # data-testid из библиотеки Reown — стабилен между сборками.
     # Playwright автоматически пробивает shadow DOM.

@@ -49,7 +49,7 @@ PWDEBUG=1 pytest tests/ui/market/test_marketplace_no_wallet.py::test_pool_card_n
 ## Структура проекта
 
 ```
-conftest.py               # фикстуры: api_client, leaderboard_api_client, browser, page, page_with_wallet
+conftest.py               # фикстуры: api_client, leaderboard_api_client, browser, page, page_with_wallet, page_with_wallet_on_pool
 pytest.ini                # регистрация marks: api, ui, trx, smoke, regression, extended
 config/settings.py        # pydantic-settings, читает .env
 core/
@@ -72,11 +72,13 @@ tests/
     test_portfolio.py
     test_leaderboard.py   # структура, сортировка, пагинация, уникальность адресов
     test_points.py        # portfolio.points == leaderboard.points
+  api/
+    conftest.py           # leaderboard_reachable (skip при 403 от Cloudflare/CI IP-блокировки)
   ui/
-    conftest.py           # screenshot_on_failure (autouse, покрывает page и page_with_wallet)
+    conftest.py           # screenshot_on_failure (autouse, покрывает page, page_with_wallet, page_with_wallet_on_pool)
     market/               # pytest.mark.ui
       test_marketplace_no_wallet.py   # smoke: загрузка, хедер, карточки, навигация, модалка
-      test_marketplace_with_wallet.py # smoke: адрес в хедере, my-portfolio, deposit/withdraw
+      test_marketplace_with_wallet.py # smoke: адрес в хедере, my-portfolio, deposit/withdraw, модалки
     fund/                 # тесты фонда (будущее)
 scripts/
   dump_markup.py          # разведка: дампит HTML и PNG страниц (результат в scripts/markup/, gitignored)
@@ -145,7 +147,11 @@ Allure-отчёт → GitHub Pages (ветка `gh-pages`).
 3. Вызывает `wagmiConfig._internal.store.setState({ status: "connected", connections: Map(...) })`
 4. Хедер перерисовывается: вместо "Connect Wallet" отображается адрес кошелька
 
-Фикстура `page_with_wallet` в `conftest.py` инкапсулирует этот флоу.
+Две фикстуры в `conftest.py` инкапсулируют этот флоу:
+- `page_with_wallet` — открывает `/marketplace`, инжектирует кошелёк. Для тестов на главной и SPA-навигации.
+- `page_with_wallet_on_pool` — открывает `/marketplace/pool/{TEST_POOL_ID}`, инжектирует кошелёк, ждёт `networkidle` после инжекции (чтобы загрузились данные баланса пользователя). Для тестов кнопок и модалок пула.
+
+**Важно:** inject_wallet выполняется ПОСЛЕ `page.goto()` на нужную страницу. `page.goto()` вызывает полный reload — состояние wagmi store сбрасывается. Поэтому нельзя инжектировать на `/marketplace` и потом делать `page.goto(pool_url)` — кошелёк потеряется.
 
 **Что не работает** (задокументировано в `wallet_injection.py`):
 - `window.ethereum` mock + `add_init_script` — AppKit не читает провайдер автоматически
@@ -157,6 +163,6 @@ Allure-отчёт → GitHub Pages (ветка `gh-pages`).
 - [x] Шаг 1: API-тесты (healthcheck, pool list, pool detail, portfolio)
 - [x] Шаг 1.5: API-тесты лидерборда и поинтов (leaderboard structure/sort/pagination, points cross-validation)
 - [x] Шаг 2: UI-тесты без кошелька (marketplace load, header, pool cards, navigation, pool page, portfolio tab)
-- [~] Шаг 3: UI-тесты с мок-кошельком (инжекция работает, test_wallet_address_shown_in_header ✓)
+- [x] Шаг 3: UI-тесты с мок-кошельком (адрес в хедере, my-portfolio, deposit/withdraw кнопки, модалки депозита и вывода)
 - [ ] Шаг 4: UI-тесты депозита и вывода
 - [ ] Шаг 5: TRX-тесты (on-chain транзакции)

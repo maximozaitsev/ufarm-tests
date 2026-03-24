@@ -20,11 +20,11 @@ def screenshot_on_failure(request):
         return
 
     page = None
-    for fixture_name in ("page", "page_with_wallet"):
+    for fixture_name in ("page", "page_with_wallet", "page_with_wallet_on_pool"):
         try:
             page = request.getfixturevalue(fixture_name)
             break
-        except pytest.FixtureLookupError:
+        except Exception:
             continue
 
     if page is None:

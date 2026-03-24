@@ -126,13 +126,25 @@
 
 #### `test_wallet_address_shown_in_header` · smoke · CRITICAL — реализовано
 - **Что:** После инжекции кошелька хедер показывает адрес вместо "Connect Wallet".
-- **Как:** `page_with_wallet` фикстура → `inject_wallet()` → проверяет `header.inner_text()` содержит начало адреса.
+- **Как:** `page_with_wallet` → `inject_wallet()` → проверяет `header.inner_text()` содержит начало адреса.
 
-#### Запланировано:
-- Доступность `/marketplace/my-portfolio` с подключённым кошельком (Overview, My portfolio блоки).
-- Кнопки DEPOSIT и WITHDRAW видны на странице пула (вместо "Connect wallet to deposit").
-- Открытие модалки депозита по клику DEPOSIT.
-- Открытие модалки вывода по клику WITHDRAW.
+#### `test_my_portfolio_accessible_with_wallet` · smoke · CRITICAL — реализовано
+- **Что:** С подключённым кошельком клик на таб "My portfolio" ведёт на `/marketplace/my-portfolio`, а не открывает Reown-модалку.
+- **Как:** `page_with_wallet` → клик на таб → `wait_for_url("**/my-portfolio**")` → проверяет отсутствие Reown-модалки.
+- **Примечание:** SPA-навигация (click, не goto) — wallet state в памяти сохраняется.
+
+#### `test_deposit_withdrawal_buttons_visible_with_wallet` · smoke · CRITICAL — реализовано
+- **Что:** На странице пула с кошельком видны кнопки Deposit и Withdraw, кнопка "Connect wallet to deposit" скрыта.
+- **Как:** `page_with_wallet_on_pool` → `wait_for_pool_page()` → `deposit_button().is_visible()` → `wait_for_withdraw_button()` (ждёт загрузки баланса) → проверяет отсутствие "Connect wallet to deposit".
+- **Примечание:** Кнопка "Withdraw" появляется только после загрузки баланса пользователя по API (~5-10 сек после inject_wallet). "Withdrawal" (с -al) — это тип операции в таблице истории, не кнопка.
+
+#### `test_deposit_modal_opens` · smoke · CRITICAL — реализовано
+- **Что:** Клик на кнопку Deposit открывает модалку с переключателем "Gasless transaction".
+- **Как:** `page_with_wallet_on_pool` → `deposit_button().click()` → `deposit_modal().wait_for(visible)` → проверяет наличие "Gasless transaction".
+
+#### `test_withdraw_modal_opens` · smoke · CRITICAL — реализовано
+- **Что:** Клик на кнопку Withdraw открывает модалку с кнопкой "Request Withdrawal".
+- **Как:** `page_with_wallet_on_pool` → `wait_for_withdraw_button()` → `withdraw_button().click()` → ждёт `get_by_text("Request Withdrawal").visible`.
 
 ---
 

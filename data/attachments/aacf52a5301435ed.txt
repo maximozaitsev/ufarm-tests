@@ -1,9 +1,0 @@
-
-  Total pools returned: 7
-    'Single Token' | valueManaged=2101005 | status=active | type=public
-    'REF TEST' | valueManaged=21038328 | status=active | type=public
-    'Target APY pool' | valueManaged=3251650 | status=active | type=public
-    'scp' | valueManaged=8823090 | status=active | type=public
-    'DeFi USDC only' | valueManaged=23339421 | status=active | type=public
-    'Every Day Pool One' | valueManaged=16065531 | status=active | type=public
-    'Demo Pool 1st' | valueManaged=3015818 | status=active | type=public

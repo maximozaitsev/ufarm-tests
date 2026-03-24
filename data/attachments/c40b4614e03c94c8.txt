@@ -1,0 +1,11 @@
+
+  Pool: 'REF TEST'
+  valueManaged    = 21039532
+  totalDeposited  = 20042955
+  revenue         = 996577
+  check: 20042955 + 996577 = 21039532  (expected == 21039532)
+
+  poolMetric.nav         = 21039532  (expected == valueManaged 21039532)
+  poolMetric.tokenPrice  = 0.9954
+  poolMetric.totalSupply = 21126555
+  poolMetric.customers   = 11

@@ -20,7 +20,13 @@ def screenshot_on_failure(request):
         return
 
     page = None
-    for fixture_name in ("page", "page_with_wallet", "page_with_wallet_on_pool"):
+    for fixture_name in (
+        "page",
+        "page_with_wallet",
+        "page_with_wallet_on_pool",
+        "page_with_wallet_on_single_token_pool",
+        "page_with_zero_wallet_on_min_deposit_pool",
+    ):
         try:
             page = request.getfixturevalue(fixture_name)
             break

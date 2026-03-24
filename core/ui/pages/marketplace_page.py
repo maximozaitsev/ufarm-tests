@@ -86,7 +86,7 @@ class MarketplacePage(BasePage):
         Примечание: "Withdrawal" (с -al) — это тип операции в таблице истории транзакций,
         не эта кнопка. Кнопка действия называется "Withdraw".
         """
-        return self.page.get_by_role("button", name="Withdraw")
+        return self.page.get_by_role("button", name="Withdraw", exact=True)
 
     def wait_for_withdraw_button(self, timeout: int = 15_000):
         """Ждёт появления кнопки Withdraw.

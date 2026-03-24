@@ -7,6 +7,9 @@ class Settings(BaseSettings):
     api_url: str = "https://api.demo.ufarm.digital/api/v1"
     test_pool_id: str = ""
     test_wallet_address: str = ""
+    pool_single_token_id: str = ""
+    pool_min_deposit_id: str = ""
+    wallet_zero_balance: str = ""
 
     model_config = SettingsConfigDict(env_file=".env")
 

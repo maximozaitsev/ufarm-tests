@@ -62,6 +62,24 @@ def pytest_addoption(parser):
         default=None,
         help="Override test wallet address (0x...)",
     )
+    parser.addoption(
+        "--pool-single-token-id",
+        action="store",
+        default=None,
+        help="Override single-token pool ID (UUID)",
+    )
+    parser.addoption(
+        "--pool-min-deposit-id",
+        action="store",
+        default=None,
+        help="Override min-deposit pool ID (UUID)",
+    )
+    parser.addoption(
+        "--wallet-zero-balance",
+        action="store",
+        default=None,
+        help="Override zero-balance wallet address (0x...)",
+    )
 
 
 @pytest.fixture(scope="session")
@@ -108,6 +126,33 @@ def test_wallet_address(request):
     value = override or settings.test_wallet_address
     if not value:
         raise ValueError("TEST_WALLET_ADDRESS is not set. Add it to .env or pass --test-wallet-address")
+    return value
+
+
+@pytest.fixture(scope="session")
+def pool_single_token_id(request):
+    override = request.config.getoption("--pool-single-token-id")
+    value = override or settings.pool_single_token_id
+    if not value:
+        raise ValueError("POOL_SINGLE_TOKEN_ID is not set. Add it to .env or pass --pool-single-token-id")
+    return value
+
+
+@pytest.fixture(scope="session")
+def pool_min_deposit_id(request):
+    override = request.config.getoption("--pool-min-deposit-id")
+    value = override or settings.pool_min_deposit_id
+    if not value:
+        raise ValueError("POOL_MIN_DEPOSIT_ID is not set. Add it to .env or pass --pool-min-deposit-id")
+    return value
+
+
+@pytest.fixture(scope="session")
+def wallet_zero_balance(request):
+    override = request.config.getoption("--wallet-zero-balance")
+    value = override or settings.wallet_zero_balance
+    if not value:
+        raise ValueError("WALLET_ZERO_BALANCE is not set. Add it to .env or pass --wallet-zero-balance")
     return value
 
 
@@ -168,6 +213,38 @@ def page_with_wallet_on_pool(browser, base_url, test_pool_id, test_wallet_addres
     inject_wallet(page, test_wallet_address)
     # После inject_wallet приложение делает запросы за балансом пользователя —
     # ждём их завершения, чтобы Withdrawal кнопка появилась.
+    page.wait_for_load_state("networkidle", timeout=15_000)
+    yield page
+    page.close()
+
+
+@pytest.fixture
+def page_with_wallet_on_single_token_pool(browser, base_url, pool_single_token_id, test_wallet_address):
+    """Playwright Page на странице single-token пула с подключённым кошельком.
+
+    Используется для тестов депозит-модалки без дропдауна токенов.
+    """
+    from core.ui.wallet_injection import inject_wallet
+
+    page = browser.new_page()
+    page.goto(f"{base_url}/marketplace/pool/{pool_single_token_id}", wait_until="networkidle")
+    inject_wallet(page, test_wallet_address)
+    page.wait_for_load_state("networkidle", timeout=15_000)
+    yield page
+    page.close()
+
+
+@pytest.fixture
+def page_with_zero_wallet_on_min_deposit_pool(browser, base_url, pool_min_deposit_id, wallet_zero_balance):
+    """Playwright Page на странице пула с min deposit, кошелёк с нулевым балансом.
+
+    Используется для теста модалки Fund wallet.
+    """
+    from core.ui.wallet_injection import inject_wallet
+
+    page = browser.new_page()
+    page.goto(f"{base_url}/marketplace/pool/{pool_min_deposit_id}", wait_until="networkidle")
+    inject_wallet(page, wallet_zero_balance)
     page.wait_for_load_state("networkidle", timeout=15_000)
     yield page
     page.close()

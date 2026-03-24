@@ -152,3 +152,26 @@ def page(browser):
     page = browser.new_page()
     yield page
     page.close()
+
+
+@pytest.fixture
+def page_with_wallet(browser, base_url, test_wallet_address):
+    """Playwright Page с программно подключённым тестовым кошельком.
+
+    Открывает /marketplace, дожидается загрузки и инжектирует кошелёк
+    напрямую в wagmi store через React Fiber — без модалки и подписей.
+    После инжекции хедер показывает адрес кошелька вместо "Connect Wallet".
+
+    Использование::
+
+        def test_something(page_with_wallet, base_url, test_wallet_address):
+            page = page_with_wallet
+            # кошелёк уже подключён, можно работать с UI
+    """
+    from core.ui.wallet_injection import inject_wallet
+
+    page = browser.new_page()
+    page.goto(f"{base_url}/marketplace", wait_until="networkidle")
+    inject_wallet(page, test_wallet_address)
+    yield page
+    page.close()

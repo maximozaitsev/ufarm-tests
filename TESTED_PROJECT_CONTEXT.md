@@ -128,6 +128,11 @@
   - UI: `playwright` (Chromium, headless).
   - Отчёты: `allure-pytest` → HTML-отчёт на GitHub Pages с историей прогонов.
   - Модели данных: `pydantic` (валидация API-ответов).
+- **Инжекция кошелька для UI-тестов**:
+  - Reown AppKit v4 + wagmi v2 хранит состояние подключения в памяти (zustand store).
+  - `core/ui/wallet_injection.py` — `inject_wallet(page, address)`: находит wagmi-конфиг через React Fiber и напрямую вызывает `store.setState({ status: "connected", ... })`.
+  - Вызывается после `page.goto(..., wait_until="networkidle")`, без модалки и подписей.
+  - Фикстура `page_with_wallet` инкапсулирует goto + inject_wallet.
 - **Allure-разметка**:
   - `@allure.epic` — модуль (`"Market"`, `"Fund"`); `@allure.feature` — тип (`"API"`, `"UI"`); `@allure.story` — фича (`"Leaderboard"`, `"Deposit"` и т.д.) — все на английском.
   - `with allure.step(...)` — на русском, содержат конкретные значения для диагностики.

@@ -17,7 +17,7 @@ class MarketplacePage(BasePage):
     # mantine-* — класс UI-библиотеки, не хэш CSS-модуля → стабилен.
     POOL_CARD_CSS = ".mantine-Paper-root:has(h2)"
 
-    # ── Page methods ─────────────────────────────────────────────────────────
+    # ── Navigation ────────────────────────────────────────────────────────────
 
     def open(self, url: str):
         self.page.goto(url, wait_until="domcontentloaded")
@@ -47,7 +47,7 @@ class MarketplacePage(BasePage):
         """Кнопка Connect Wallet (первая — в хедере)."""
         return self.page.get_by_role("button", name="Connect Wallet").first
 
-    # ── Marketplace — All products ────────────────────────────────────────────
+    # ── Marketplace — pool list ───────────────────────────────────────────────
 
     def pool_cards(self):
         return self.page.locator(self.POOL_CARD_CSS)
@@ -70,8 +70,8 @@ class MarketplacePage(BasePage):
         return self.page.get_by_role("tab")
 
     # ── Connect Wallet modal (Reown / Web3Modal) ──────────────────────────────
-    # data-testid из самой библиотеки Reown — стабилен между сборками приложения.
-    # Playwright автоматически пробивает shadow DOM при использовании locator().
+    # data-testid из библиотеки Reown — стабилен между сборками.
+    # Playwright автоматически пробивает shadow DOM.
 
     def connect_wallet_modal(self):
         """Модалка подключения кошелька (Reown Web3Modal)."""

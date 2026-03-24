@@ -49,7 +49,7 @@ PWDEBUG=1 pytest tests/ui/market/test_marketplace_no_wallet.py::test_pool_card_n
 ## Структура проекта
 
 ```
-conftest.py               # фикстуры: api_client, leaderboard_api_client, test_pool_id, test_wallet_address, browser, page
+conftest.py               # фикстуры: api_client, leaderboard_api_client, browser, page, page_with_wallet
 pytest.ini                # регистрация marks: api, ui, trx, smoke, regression, extended
 config/settings.py        # pydantic-settings, читает .env
 core/
@@ -61,7 +61,9 @@ core/
       leaderboard.py      # LeaderboardItem, LeaderboardResponse
   ui/
     base_page.py
-    pages/marketplace_page.py   # MarketplacePage: селекторы + методы навигации
+    wallet_injection.py   # inject_wallet(): React Fiber → wagmi store → connected state без модалки
+    pages/
+      marketplace_page.py # MarketplacePage: селекторы + методы навигации
 tests/
   api/                    # pytest.mark.api
     test_healthcheck.py
@@ -70,9 +72,11 @@ tests/
     test_portfolio.py
     test_leaderboard.py   # структура, сортировка, пагинация, уникальность адресов
     test_points.py        # portfolio.points == leaderboard.points
-  ui/                     # pytest.mark.ui
-    market/               # тесты маркетплейса
-      test_marketplace_no_wallet.py  # smoke: загрузка, хедер, карточки, навигация, портфолио
+  ui/
+    conftest.py           # screenshot_on_failure (autouse, покрывает page и page_with_wallet)
+    market/               # pytest.mark.ui
+      test_marketplace_no_wallet.py   # smoke: загрузка, хедер, карточки, навигация, модалка
+      test_marketplace_with_wallet.py # smoke: адрес в хедере, my-portfolio, deposit/withdraw
     fund/                 # тесты фонда (будущее)
 scripts/
   dump_markup.py          # разведка: дампит HTML и PNG страниц (результат в scripts/markup/, gitignored)
@@ -133,11 +137,26 @@ GitHub Actions, только ручной запуск (`workflow_dispatch`).
 Secrets: `TEST_POOL_ID`, `TEST_WALLET_ADDRESS`.
 Allure-отчёт → GitHub Pages (ветка `gh-pages`).
 
+## Инжекция кошелька (UI-тесты с wallet)
+
+Используется `core/ui/wallet_injection.py` — обходит Reown-модалку через React Fiber:
+1. После `page.goto(..., wait_until="networkidle")` вызывается `inject_wallet(page, address)`
+2. Функция находит wagmi-конфиг в дереве React Fiber через `document.getElementById('root').__reactContainer*`
+3. Вызывает `wagmiConfig._internal.store.setState({ status: "connected", connections: Map(...) })`
+4. Хедер перерисовывается: вместо "Connect Wallet" отображается адрес кошелька
+
+Фикстура `page_with_wallet` в `conftest.py` инкапсулирует этот флоу.
+
+**Что не работает** (задокументировано в `wallet_injection.py`):
+- `window.ethereum` mock + `add_init_script` — AppKit не читает провайдер автоматически
+- Pre-populate localStorage — wagmi сбрасывает состояние (UID коннектора генерируется случайно)
+- Модальный UI-флоу — MetaMask показывает QR, Browser Wallet не обнаруживается в headless Chromium
+
 ## Текущий статус
 
 - [x] Шаг 1: API-тесты (healthcheck, pool list, pool detail, portfolio)
 - [x] Шаг 1.5: API-тесты лидерборда и поинтов (leaderboard structure/sort/pagination, points cross-validation)
 - [x] Шаг 2: UI-тесты без кошелька (marketplace load, header, pool cards, navigation, pool page, portfolio tab)
-- [ ] Шаг 3: UI-тесты с мок-кошельком
+- [~] Шаг 3: UI-тесты с мок-кошельком (инжекция работает, test_wallet_address_shown_in_header ✓)
 - [ ] Шаг 4: UI-тесты депозита и вывода
 - [ ] Шаг 5: TRX-тесты (on-chain транзакции)

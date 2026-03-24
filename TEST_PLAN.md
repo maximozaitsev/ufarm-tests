@@ -118,14 +118,21 @@
 
 ---
 
-## 4. UI-тесты с мок-кошельком (Шаг 3 — запланировано)
+## 4. UI-тесты с кошельком (Шаг 3 — в процессе)
 
-> Playwright + инжект `window.ethereum` (mock provider). Имитирует подключённый кошелёк.
+> Playwright + `inject_wallet()` — программная инжекция через React Fiber в wagmi store.
+> Файл: `tests/ui/market/test_marketplace_with_wallet.py`
+> Фикстура: `page_with_wallet` (открывает `/marketplace`, инжектирует кошелёк, хедер показывает адрес).
 
-- Отображение адреса и баланса в хедере после подключения.
-- Открытие модалки кошелька (FUND WALLET, SEND, DISCONNECT).
-- Доступность страницы `/marketplace/my-portfolio` с подключённым кошельком.
-- Кнопки DEPOSIT и WITHDRAW доступны и открывают модалки.
+#### `test_wallet_address_shown_in_header` · smoke · CRITICAL — реализовано
+- **Что:** После инжекции кошелька хедер показывает адрес вместо "Connect Wallet".
+- **Как:** `page_with_wallet` фикстура → `inject_wallet()` → проверяет `header.inner_text()` содержит начало адреса.
+
+#### Запланировано:
+- Доступность `/marketplace/my-portfolio` с подключённым кошельком (Overview, My portfolio блоки).
+- Кнопки DEPOSIT и WITHDRAW видны на странице пула (вместо "Connect wallet to deposit").
+- Открытие модалки депозита по клику DEPOSIT.
+- Открытие модалки вывода по клику WITHDRAW.
 
 ---
 

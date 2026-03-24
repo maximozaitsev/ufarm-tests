@@ -1,9 +1,0 @@
-
-  Total pools: 7
-    'smoke_11_03-3' | valueManaged=2100617 | status=active | type=public
-    'REF TEST' | valueManaged=21039532 | status=active | type=public
-    'Target APY pool' | valueManaged=3251200 | status=active | type=public
-    'scp' | valueManaged=8833292 | status=active | type=public
-    'DeFi USDC only' | valueManaged=23382584 | status=active | type=public
-    'Every Day Pool One' | valueManaged=16092960 | status=active | type=public
-    'Demo Pool 1st' | valueManaged=3016120 | status=active | type=public

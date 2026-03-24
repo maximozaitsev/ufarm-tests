@@ -23,13 +23,25 @@ _TERMS_HEADINGS = {"proof of agreement", "terms", "agreement"}
 def open_deposit_modal(page, mp: MarketplacePage, modal: DepositModal):
     """Открывает модалку депозита; пропускает тест если появились Terms.
 
+    В headless режиме приложение может сначала показать Terms или промежуточное
+    состояние — нельзя читать heading сразу. Ждём конкретный "DEPOSIT" heading
+    с таймаутом, и только если он не появился — проверяем что показалось.
+
     Terms (PROOF OF AGREEMENT) требует подписи кошелька — не поддерживается
-    при inject_wallet без приватного ключа. Тест будет SKIPPED до решения этой проблемы.
+    при inject_wallet без приватного ключа. Тест будет SKIPPED до решения.
     """
     mp.wait_for_pool_page()
     mp.deposit_button().click()
     modal.wait_for()
 
+    # Ждём DEPOSIT heading (приложение может сначала показать Terms, потом Deposit)
+    try:
+        page.get_by_role("heading", name="DEPOSIT").wait_for(state="visible", timeout=15_000)
+        return  # Deposit modal открылась корректно
+    except Exception:
+        pass
+
+    # Deposit не появился — смотрим что открылось
     headings = page.locator(".mantine-Modal-content").first.locator(
         "h1, h2, h3, h4"
     ).all_inner_texts()
@@ -40,8 +52,7 @@ def open_deposit_modal(page, mp: MarketplacePage, modal: DepositModal):
             f"Terms modal appeared — requires wallet signing, not supported with inject_wallet. "
             f"Headings: {headings}"
         )
-    if "deposit" not in heading_lower:
-        pytest.skip(f"Expected deposit modal but got: {headings}")
+    pytest.skip(f"Expected deposit modal but got: {headings}")
 
 
 # ══════════════════════════════════════════════════════════════════════════════

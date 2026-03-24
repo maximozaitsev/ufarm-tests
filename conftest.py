@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 
@@ -6,6 +7,25 @@ from playwright.sync_api import sync_playwright
 
 from config.settings import settings
 from core.api.client import APIClient
+
+
+def _mock_auth_connect(page) -> None:
+    """Мокает GET /auth/connect/{address} — возвращает createdAt мгновенно.
+
+    Без мока реальный HTTP-запрос приходит с задержкой, и React не успевает
+    обработать userData.createdAt до клика на Deposit. Это приводит к тому,
+    что приложение показывает «PROOF OF AGREEMENT» вместо модалки депозита.
+
+    Устанавливать ДО page.goto().
+    """
+    def _handler(route, _request):
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps({"createdAt": "2024-01-01T00:00:00.000Z", "lastTopUp": None}),
+        )
+
+    page.route("**/auth/connect/**", _handler)
 
 
 ENV_CONFIG = {
@@ -209,6 +229,7 @@ def page_with_wallet_on_pool(browser, base_url, test_pool_id, test_wallet_addres
     from core.ui.wallet_injection import inject_wallet
 
     page = browser.new_page()
+    _mock_auth_connect(page)
     page.goto(f"{base_url}/marketplace/pool/{test_pool_id}", wait_until="networkidle")
     inject_wallet(page, test_wallet_address)
     # После inject_wallet приложение делает запросы за балансом пользователя —
@@ -227,6 +248,7 @@ def page_with_wallet_on_single_token_pool(browser, base_url, pool_single_token_i
     from core.ui.wallet_injection import inject_wallet
 
     page = browser.new_page()
+    _mock_auth_connect(page)
     page.goto(f"{base_url}/marketplace/pool/{pool_single_token_id}", wait_until="networkidle")
     inject_wallet(page, test_wallet_address)
     page.wait_for_load_state("networkidle", timeout=15_000)
@@ -246,6 +268,7 @@ def page_with_zero_wallet_on_min_deposit_pool(browser, base_url, pool_min_deposi
     from core.ui.wallet_injection import inject_wallet
 
     page = browser.new_page()
+    _mock_auth_connect(page)
     # "networkidle" недостижим для Pool C — пул делает долгие polling-запросы.
     page.goto(f"{base_url}/marketplace/pool/{pool_min_deposit_id}", wait_until="domcontentloaded", timeout=60_000)
     page.get_by_role("heading", level=1).wait_for(timeout=30_000)

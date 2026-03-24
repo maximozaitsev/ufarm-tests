@@ -6,6 +6,8 @@ import pytest
 
 from core.api.models.leaderboard import LeaderboardResponse
 
+pytestmark = pytest.mark.usefixtures("leaderboard_reachable")
+
 ETHEREUM_ADDRESS_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
 
 

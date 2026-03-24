@@ -6,6 +6,8 @@ import pytest
 from core.api.models.leaderboard import LeaderboardResponse
 from core.api.models.portfolio import Portfolio
 
+pytestmark = pytest.mark.usefixtures("leaderboard_reachable")
+
 
 @pytest.mark.api
 @pytest.mark.smoke

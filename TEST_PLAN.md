@@ -118,37 +118,169 @@
 
 ---
 
-## 4. UI-тесты с кошельком (Шаг 3 — в процессе)
+## 4. UI-тесты с кошельком (Шаг 3 — реализовано)
 
 > Playwright + `inject_wallet()` — программная инжекция через React Fiber в wagmi store.
-> Файл: `tests/ui/market/test_marketplace_with_wallet.py`
+> Фикстуры: `page_with_wallet`, `page_with_wallet_on_pool`, `page_with_wallet_on_single_token_pool`, `page_with_zero_wallet_on_min_deposit_pool`.
+> Мок `_mock_auth_connect` — подменяет `GET /auth/connect/{address}` до `page.goto()`, чтобы `userData.createdAt` был доступен в React-состоянии сразу (иначе вместо Deposit открывается PROOF OF AGREEMENT).
+
+### 4.1 Базовые тесты — `tests/ui/market/test_marketplace_with_wallet.py`
+
 > Фикстура: `page_with_wallet` (открывает `/marketplace`, инжектирует кошелёк, хедер показывает адрес).
 
-#### `test_wallet_address_shown_in_header` · smoke · CRITICAL — реализовано
+#### `test_wallet_address_shown_in_header` · smoke · CRITICAL
 - **Что:** После инжекции кошелька хедер показывает адрес вместо "Connect Wallet".
 - **Как:** `page_with_wallet` → `inject_wallet()` → проверяет `header.inner_text()` содержит начало адреса.
 
-#### `test_my_portfolio_accessible_with_wallet` · smoke · CRITICAL — реализовано
+#### `test_my_portfolio_accessible_with_wallet` · smoke · CRITICAL
 - **Что:** С подключённым кошельком клик на таб "My portfolio" ведёт на `/marketplace/my-portfolio`, а не открывает Reown-модалку.
 - **Как:** `page_with_wallet` → клик на таб → `wait_for_url("**/my-portfolio**")` → проверяет отсутствие Reown-модалки.
 - **Примечание:** SPA-навигация (click, не goto) — wallet state в памяти сохраняется.
 
-#### `test_deposit_withdrawal_buttons_visible_with_wallet` · smoke · CRITICAL — реализовано
+#### `test_deposit_withdrawal_buttons_visible_with_wallet` · smoke · CRITICAL
 - **Что:** На странице пула с кошельком видны кнопки Deposit и Withdraw, кнопка "Connect wallet to deposit" скрыта.
 - **Как:** `page_with_wallet_on_pool` → `wait_for_pool_page()` → `deposit_button().is_visible()` → `wait_for_withdraw_button()` (ждёт загрузки баланса) → проверяет отсутствие "Connect wallet to deposit".
 - **Примечание:** Кнопка "Withdraw" появляется только после загрузки баланса пользователя по API (~5-10 сек после inject_wallet). "Withdrawal" (с -al) — это тип операции в таблице истории, не кнопка.
 
-#### `test_deposit_modal_opens` · smoke · CRITICAL — реализовано
+#### `test_deposit_modal_opens` · smoke · CRITICAL
 - **Что:** Клик на кнопку Deposit открывает модалку с переключателем "Gasless transaction".
 - **Как:** `page_with_wallet_on_pool` → `deposit_button().click()` → `deposit_modal().wait_for(visible)` → проверяет наличие "Gasless transaction".
 
-#### `test_withdraw_modal_opens` · smoke · CRITICAL — реализовано
+#### `test_withdraw_modal_opens` · smoke · CRITICAL
 - **Что:** Клик на кнопку Withdraw открывает модалку с кнопкой "Request Withdrawal".
 - **Как:** `page_with_wallet_on_pool` → `wait_for_withdraw_button()` → `withdraw_button().click()` → ждёт `get_by_text("Request Withdrawal").visible`.
 
 ---
 
-## 5. UI-тесты: депозит и вывод (Шаг 4 — запланировано)
+### 4.2 Модалка депозита — `tests/ui/market/test_deposit_modal.py`
+
+> Вспомогательная функция `open_deposit_modal()` — кликает Deposit, ждёт heading "DEPOSIT" с таймаутом 15 сек. Если появился Terms/PROOF OF AGREEMENT — пропускает тест (`pytest.skip`).
+
+**Pool A (single-token):** фикстура `page_with_wallet_on_single_token_pool` (POOL_SINGLE_TOKEN_ID + TEST_WALLET_ADDRESS)
+
+#### `test_deposit_modal_opens_single_token` · smoke · CRITICAL
+- **Что:** Модалка депозита открывается на single-token пуле.
+- **Как:** `open_deposit_modal()` → скриншот.
+
+#### `test_deposit_modal_single_token_no_dropdown` · smoke · NORMAL
+- **Что:** В single-token пуле нет дропдауна выбора токена (role=combobox или listbox).
+- **Как:** После открытия модалки проверяет отсутствие `[role='combobox']` и `[role='listbox']` внутри `.mantine-Modal-body`.
+
+#### `test_deposit_modal_input_visible` · smoke · CRITICAL
+- **Что:** Поле ввода суммы видно.
+- **Как:** `modal.amount_input().is_visible()`.
+
+#### `test_deposit_modal_empty_input_button_disabled` · smoke · CRITICAL
+- **Что:** Кнопка submit отключена когда инпут пустой или = "0".
+- **Как:** `modal.submit_button().is_disabled()`.
+
+#### `test_deposit_modal_max_button_fills_wallet_balance` · smoke · CRITICAL
+- **Что:** Клик MAX заполняет инпут on-chain USDT балансом кошелька (погрешность < 1%).
+- **Как:** Сравнивает `amount_input().input_value()` с `wallet_usdt_balance` (фикстура из conftest).
+- **После MAX:** кнопка submit становится активной.
+
+#### `test_deposit_modal_gasless_on_by_default` · smoke · NORMAL
+- **Что:** Тоглер Gasless включён по умолчанию, текст кнопки = "request deposit".
+- **Как:** `modal.gasless_toggle().is_checked()` + `modal.submit_button_text()`.
+
+#### `test_deposit_modal_gasless_off_shows_instant_deposit` · smoke · CRITICAL
+- **Что:** Отключение Gasless меняет текст кнопки на "instant deposit".
+- **Как:** `gasless_toggle().evaluate("el => el.click()")` → проверяет текст кнопки.
+
+#### `test_deposit_modal_gasless_on_shows_request_deposit` · smoke · NORMAL
+- **Что:** Повторное включение Gasless возвращает текст "request deposit".
+- **Как:** Выключить → включить → проверить текст.
+
+**Pool B (multi-token):** фикстура `page_with_wallet_on_pool` (TEST_POOL_ID + TEST_WALLET_ADDRESS)
+
+#### `test_deposit_modal_opens_multi_token` · smoke · CRITICAL
+- **Что:** Модалка депозита открывается на multi-token пуле.
+- **Как:** `open_deposit_modal()` → скриншот.
+
+#### `test_deposit_modal_multi_token_has_dropdown` · smoke · NORMAL
+- **Что:** Клик по иконке токена открывает дропдаун, в котором видны варианты из `availableValueTokens` пула (из API).
+- **Как:** `modal.token_selector().click()` → `modal.token_dropdown().wait_for(visible)` → проверяет видимость каждого токена.
+
+#### `test_deposit_triggers_signing` · smoke · CRITICAL (TBD)
+- **Что:** Клик submit после MAX запускает signing flow.
+- **Статус:** Ожидаем наблюдения в `HEADED=1` — assertion не добавлен.
+
+---
+
+### 4.3 Модалка Fund wallet — `tests/ui/market/test_fund_wallet_modal.py`
+
+> Фикстура: `page_with_zero_wallet_on_min_deposit_pool` — scope=module, страница загружается один раз.
+> Пул Pool C (POOL_MIN_DEPOSIT_ID) + WALLET_ZERO_BALANCE (баланс < min deposit пула).
+>
+> Вспомогательная функция `open_fund_wallet_modal()` — закрывает предыдущую модалку (module-scope), кликает Deposit, ждёт heading "Fund wallet" до 20 сек. Если не появился — `pytest.skip`.
+>
+> Первый тест ~15 сек (on-chain RPC проверка баланса), последующие быстро (кеш приложения).
+
+#### `test_fund_wallet_modal_opens` · smoke · CRITICAL
+- **Что:** Модалка Fund wallet открывается при нулевом балансе кошелька (< min deposit пула).
+- **Как:** `open_fund_wallet_modal()` → `modal.wait_opened()`.
+
+#### `test_fund_wallet_modal_title` · smoke · NORMAL
+- **Что:** Заголовок модалки — "Fund wallet".
+- **Как:** `modal.title().is_visible()`.
+
+#### `test_fund_wallet_modal_text_contains_min_deposit` · smoke · CRITICAL
+- **Что:** Текст-подсказка содержит минимальную сумму депозита из API пула.
+- **Как:** Вычисляет `display_amount` из `pool_info_min_deposit.limits.deposit_min / 10^decimals` → ищет в `modal.hint_text()`.
+
+#### `test_fund_wallet_modal_text_contains_token` · smoke · CRITICAL
+- **Что:** Текст содержит тикер токена из `availableValueTokens` пула.
+- **Как:** Проверяет что любой из `tokens.upper()` присутствует в `modal.hint_text()`.
+
+#### `test_fund_wallet_modal_text_contains_network` · smoke · NORMAL
+- **Что:** Текст содержит название сети текущего окружения (Arbitrum / Ethereum).
+- **Как:** Использует фикстуру `network_name` → ищет в `modal.hint_text()`.
+
+#### `test_fund_wallet_modal_has_buy_crypto` · smoke · NORMAL
+- **Что:** Кнопка "buy crypto" видна.
+- **Как:** `modal.buy_crypto_button().is_visible()`.
+
+#### `test_fund_wallet_modal_has_receive_funds` · smoke · NORMAL
+- **Что:** Кнопка "receive funds" видна.
+- **Как:** `modal.receive_funds_button().is_visible()`.
+
+---
+
+### 4.4 Модалка вывода — `tests/ui/market/test_withdraw_modal.py`
+
+> Фикстура: `page_with_wallet_on_pool` (TEST_POOL_ID + TEST_WALLET_ADDRESS, кошелёк с ненулевым балансом).
+
+#### `test_withdraw_modal_opens` · smoke · CRITICAL
+- **Что:** Клик Withdraw открывает модалку вывода.
+- **Как:** `wait_for_withdraw_button()` → `withdraw_button().click()` → `modal.wait_for()` → скриншот.
+
+#### `test_withdraw_modal_shows_pool_balance` · smoke · CRITICAL
+- **Что:** Баланс в модалке > 0 и соответствует данным portfolio API (оба > 0, ненулевые).
+- **Как:** Парсит "Balance: X" из `modal.balance_text()`, сравнивает с `wallet_portfolio` (фикстура). Точное совпадение не ожидается (vault token ≠ USDT), проверяется только ненулевость обоих.
+
+#### `test_withdraw_modal_has_request_withdrawal_button` · smoke · CRITICAL
+- **Что:** Кнопка "Request Withdrawal" видна.
+- **Как:** `modal.request_withdrawal_button().wait_for(state="visible", timeout=5_000)`.
+
+#### `test_withdraw_modal_pool_input_updates_token_input` · smoke · CRITICAL
+- **Что:** Ввод "1" в pool token input (sellCoin) пересчитывает withdrawal token input (buyCoin).
+- **Как:** `modal.pool_token_input().fill("1")` → `wait_for_timeout(1000)` → `modal.withdraw_token_input().input_value()` не пустой и не "0".
+
+#### `test_withdraw_modal_token_input_updates_pool_input` · smoke · CRITICAL
+- **Что:** Ввод "1" в withdrawal token input (buyCoin) пересчитывает pool token input (sellCoin).
+- **Как:** Обратная проверка взаимосвязи инпутов.
+
+#### `test_withdraw_modal_max_button` · smoke · CRITICAL
+- **Что:** Клик MAX заполняет pool token input полным балансом (погрешность < 1% от отображаемого Balance).
+- **Как:** Сохраняет значение из "Balance: X" → `modal.max_button().click()` → сравнивает float значения с допуском 1%.
+
+#### `test_withdraw_triggers_signing` · smoke · CRITICAL (TBD)
+- **Что:** Клик Request Withdrawal после MAX запускает signing flow.
+- **Статус:** Ожидаем наблюдения в `HEADED=1` — assertion не добавлен.
+
+---
+
+## 5. UI-тесты: on-chain транзакции (Шаг 4 — запланировано)
 
 > Playwright + мок-провайдер + верификация через API после действия.
 
@@ -202,7 +334,7 @@
 
 Пример: `test_type=api, test_suite=smoke` → `pytest -m "api and smoke"`
 
-Secrets: `TEST_POOL_ID`, `TEST_WALLET_ADDRESS` (добавить в Settings → Secrets → Actions).
+Secrets: `TEST_POOL_ID`, `TEST_WALLET_ADDRESS`, `POOL_SINGLE_TOKEN_ID`, `POOL_MIN_DEPOSIT_ID`, `WALLET_ZERO_BALANCE` (добавить в Settings → Secrets → Actions).
 
 ### Allure-отчёты
 

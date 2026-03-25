@@ -49,7 +49,12 @@ PWDEBUG=1 pytest tests/ui/market/test_marketplace_no_wallet.py::test_pool_card_n
 ## Структура проекта
 
 ```
-conftest.py               # фикстуры: api_client, leaderboard_api_client, browser, page, page_with_wallet, page_with_wallet_on_pool
+conftest.py               # фикстуры: api_client, leaderboard_api_client, browser, page,
+                          #   page_with_wallet, page_with_wallet_on_pool,
+                          #   page_with_wallet_on_single_token_pool,
+                          #   page_with_zero_wallet_on_min_deposit_pool (scope=module),
+                          #   pool_single_token_id, pool_min_deposit_id, wallet_zero_balance
+                          # _mock_auth_connect() — мок GET /auth/connect/{addr} до page.goto()
 pytest.ini                # регистрация marks: api, ui, trx, smoke, regression, extended
 config/settings.py        # pydantic-settings, читает .env
 core/
@@ -62,8 +67,12 @@ core/
   ui/
     base_page.py
     wallet_injection.py   # inject_wallet(): React Fiber → wagmi store → connected state без модалки
+    on_chain.py           # get_erc20_balance(): on-chain USDT/USDC баланс через JSON-RPC
     pages/
-      marketplace_page.py # MarketplacePage: селекторы + методы навигации
+      marketplace_page.py # MarketplacePage: пул-карточки, хедер, кнопки Deposit/Withdraw
+      deposit_modal.py    # DepositModal: инпут, MAX, gasless toggle, submit (#poolDepositConfirm)
+      withdraw_modal.py   # WithdrawModal: sellCoin/buyCoin инпуты, MAX, Request Withdrawal
+      fund_wallet_modal.py # FundWalletModal: title, hint_text, buy crypto / receive funds
 tests/
   api/                    # pytest.mark.api
     test_healthcheck.py
@@ -75,10 +84,15 @@ tests/
   api/
     conftest.py           # leaderboard_reachable (skip при 403 от Cloudflare/CI IP-блокировки)
   ui/
-    conftest.py           # screenshot_on_failure (autouse, покрывает page, page_with_wallet, page_with_wallet_on_pool)
+    conftest.py           # screenshot_on_failure (autouse)
     market/               # pytest.mark.ui
+      conftest.py         # pool_info_single_token, pool_info_multi_token, pool_info_min_deposit,
+                          # wallet_usdt_balance, wallet_portfolio, network_name
       test_marketplace_no_wallet.py   # smoke: загрузка, хедер, карточки, навигация, модалка
-      test_marketplace_with_wallet.py # smoke: адрес в хедере, my-portfolio, deposit/withdraw, модалки
+      test_marketplace_with_wallet.py # smoke: адрес в хедере, my-portfolio, deposit/withdraw кнопки
+      test_deposit_modal.py           # smoke: Pool A (single-token) + Pool B (multi-token)
+      test_withdraw_modal.py          # smoke: Pool B + TEST_WALLET_ADDRESS (кошелёк с балансом)
+      test_fund_wallet_modal.py       # smoke: Pool C + WALLET_ZERO_BALANCE
     fund/                 # тесты фонда (будущее)
 scripts/
   dump_markup.py          # разведка: дампит HTML и PNG страниц (результат в scripts/markup/, gitignored)
@@ -88,8 +102,11 @@ scripts/
 
 **`.env` (тестовые данные):**
 ```
-TEST_POOL_ID=<uuid>
-TEST_WALLET_ADDRESS=<0x...>
+TEST_POOL_ID=<uuid>              # Pool B — multi-token пул, кошелёк с балансом
+TEST_WALLET_ADDRESS=<0x...>      # WALLET_WITH_BALANCE — кошелёк с ненулевым балансом в Pool B
+POOL_SINGLE_TOKEN_ID=<uuid>      # Pool A — single-token пул
+POOL_MIN_DEPOSIT_ID=<uuid>       # Pool C — пул с заметным min deposit
+WALLET_ZERO_BALANCE=<0x...>      # кошелёк с балансом < min deposit Pool C
 ```
 `base_url`, `fund_url`, `api_url` имеют дефолты на DEMO — в CI не нужны.
 
@@ -136,7 +153,7 @@ with allure.step("Открылась модалка"):
 
 GitHub Actions, только ручной запуск (`workflow_dispatch`).
 Параметры: `test_type` (api/ui/trx/all), `test_suite` (smoke/regression/extended/all), `environment` (demo).
-Secrets: `TEST_POOL_ID`, `TEST_WALLET_ADDRESS`.
+Secrets: `TEST_POOL_ID`, `TEST_WALLET_ADDRESS`, `POOL_SINGLE_TOKEN_ID`, `POOL_MIN_DEPOSIT_ID`, `WALLET_ZERO_BALANCE`.
 Allure-отчёт → GitHub Pages (ветка `gh-pages`).
 
 ## Инжекция кошелька (UI-тесты с wallet)
@@ -147,9 +164,13 @@ Allure-отчёт → GitHub Pages (ветка `gh-pages`).
 3. Вызывает `wagmiConfig._internal.store.setState({ status: "connected", connections: Map(...) })`
 4. Хедер перерисовывается: вместо "Connect Wallet" отображается адрес кошелька
 
-Две фикстуры в `conftest.py` инкапсулируют этот флоу:
+Четыре фикстуры в `conftest.py` инкапсулируют этот флоу:
 - `page_with_wallet` — открывает `/marketplace`, инжектирует кошелёк. Для тестов на главной и SPA-навигации.
-- `page_with_wallet_on_pool` — открывает `/marketplace/pool/{TEST_POOL_ID}`, инжектирует кошелёк, ждёт `networkidle` после инжекции (чтобы загрузились данные баланса пользователя). Для тестов кнопок и модалок пула.
+- `page_with_wallet_on_pool` — открывает `/marketplace/pool/{TEST_POOL_ID}` (Pool B), инжектирует кошелёк, ждёт `networkidle`. Для тестов Deposit/Withdraw модалок (кошелёк с ненулевым балансом).
+- `page_with_wallet_on_single_token_pool` — открывает `/marketplace/pool/{POOL_SINGLE_TOKEN_ID}` (Pool A). Для тестов single-token deposit modal.
+- `page_with_zero_wallet_on_min_deposit_pool` — открывает `/marketplace/pool/{POOL_MIN_DEPOSIT_ID}` (Pool C), кошелёк WALLET_ZERO_BALANCE. **scope=module** — страница загружается один раз на весь модуль. Для тестов Fund wallet modal.
+
+**Почему scope=module для Pool C:** Pool C делает долгие polling-запросы (networkidle недостижим). Первый клик Deposit занимает ~15 сек (on-chain RPC). Module-scope позволяет загрузить страницу и прогреть кеш балансов один раз на все 7 тестов.
 
 **Важно:** inject_wallet выполняется ПОСЛЕ `page.goto()` на нужную страницу. `page.goto()` вызывает полный reload — состояние wagmi store сбрасывается. Поэтому нельзя инжектировать на `/marketplace` и потом делать `page.goto(pool_url)` — кошелёк потеряется.
 
@@ -163,6 +184,7 @@ Allure-отчёт → GitHub Pages (ветка `gh-pages`).
 - [x] Шаг 1: API-тесты (healthcheck, pool list, pool detail, portfolio)
 - [x] Шаг 1.5: API-тесты лидерборда и поинтов (leaderboard structure/sort/pagination, points cross-validation)
 - [x] Шаг 2: UI-тесты без кошелька (marketplace load, header, pool cards, navigation, pool page, portfolio tab)
-- [x] Шаг 3: UI-тесты с мок-кошельком (адрес в хедере, my-portfolio, deposit/withdraw кнопки, модалки депозита и вывода)
-- [ ] Шаг 4: UI-тесты депозита и вывода
+- [x] Шаг 3: UI-тесты с мок-кошельком — базовые (адрес в хедере, my-portfolio, deposit/withdraw кнопки)
+- [x] Шаг 3.5: UI-тесты модалок депозита (Pool A + Pool B), вывода (Pool B), Fund wallet (Pool C)
+- [ ] Шаг 4: UI-тесты on-chain транзакций (signing flow, верификация через API)
 - [ ] Шаг 5: TRX-тесты (on-chain транзакции)

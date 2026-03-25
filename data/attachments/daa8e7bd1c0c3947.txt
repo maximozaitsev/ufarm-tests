@@ -1,9 +1,0 @@
-
-  Wallet: 0xd2692CCEbC8d34EFd74185908956e5f75FF71cA3
-  allDeposited   = 6000000
-  allWithdrawals = 2998785
-  totalBalance   = 2990750
-  realizedPnL    = -1215
-  unrealizedPnL  = -9250
-  points         = 6114.5741325
-  pools count    = 1

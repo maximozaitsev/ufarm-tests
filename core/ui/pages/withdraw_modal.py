@@ -47,5 +47,10 @@ class WithdrawModal:
         return self._body.locator("text=Balance:").first.inner_text()
 
     def close(self):
-        self.page.keyboard.press("Escape")
+        """Закрывает модалку кликом по иконке крестика.
+
+        Escape не работает — модалка закрывается только через UI-кнопку закрытия.
+        [class*='closeIcon'] — substring match, устойчив к хэшам CSS-модулей.
+        """
+        self._content.locator("[class*='closeIcon']").click()
         self._content.wait_for(state="hidden", timeout=3_000)

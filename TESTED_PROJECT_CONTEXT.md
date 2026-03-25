@@ -118,8 +118,12 @@
   - Два взаимосвязанных инпута (изменение одного пересчитывает другой):
     - `data-path="withdraw-sellCoin"` — сколько токенов пула отдаём.
     - `data-path="withdraw-buyCoin"` — сколько USDT/USDC получим.
-  - Кнопка `MAX` — заполняет `sellCoin` полным балансом, строка `Balance: X` показывает текущий баланс.
-  - Кнопка `REQUEST WITHDRAWAL` — создаёт безгазовый запрос на вывод (одобряется управляющим фонда).
+  - Связь инпутов: `buyCoin = sellCoin × tokenPrice`, `sellCoin = buyCoin / tokenPrice`.
+  - Строка `Balance: X` — текущий баланс в токенах пула. Формула для сравнения с API: `ui_balance_tokens ≈ portfolio.totalBalance / 10^6 / tokenPrice` (totalBalance — USDT, 6 decimals; tokenPrice из `pool.poolMetric.tokenPrice`).
+  - Кнопка `MAX` — заполняет `sellCoin` полным балансом.
+  - Кнопка `REQUEST WITHDRAWAL` — активна только при ненулевом валидном значении в инпутах; дизейблится если значение = 0, пустое, или превышает баланс.
+  - Сообщения об ошибках под инпутом: "Not enough pool tokens, please change the sum accordingly" (превышение баланса), "Please indicate the withdrawal sum or shares to sell" (нулевое значение).
+  - **Закрытие модалки:** только кликом по иконке крестика (`[class*='closeIcon']`). Нажатие Escape модалку не закрывает.
   - Все выводы являются безгазовыми: запрос создаётся на стороне маркета и далее одобряется управляющим фонда.
 
 - **Состояние без подключённого кошелька**:

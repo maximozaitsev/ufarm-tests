@@ -249,30 +249,59 @@
 ### 4.4 Модалка вывода — `tests/ui/market/test_withdraw_modal.py`
 
 > Фикстура: `page_with_wallet_on_pool` (TEST_POOL_ID + TEST_WALLET_ADDRESS, кошелёк с ненулевым балансом).
+>
+> **Важно по закрытию модалки:** Escape не закрывает модалку — только клик по иконке крестика `[class*='closeIcon']`. `WithdrawModal.close()` реализован через клик, не через Escape.
+>
+> **Расчёт баланса в токенах пула:** `api_balance_tokens = totalBalance / 10^6 / tokenPrice`, где `totalBalance` из portfolio API — USDT-стоимость инвестиции в наименьших единицах (6 decimals на Arbitrum), `tokenPrice` — из `pool.poolMetric.tokenPrice`.
 
 #### `test_withdraw_modal_opens` · smoke · CRITICAL
-- **Что:** Клик Withdraw открывает модалку вывода.
-- **Как:** `wait_for_withdraw_button()` → `withdraw_button().click()` → `modal.wait_for()` → скриншот.
+- **Что:** Клик Withdraw открывает модалку вывода, дожидается видимости кнопки Request Withdrawal (модалка полностью отрисована).
+- **Как:** `wait_for_withdraw_button()` → `withdraw_button().click()` → `modal.wait_for()` → `request_withdrawal_button().wait_for(visible)` → скриншот.
 
 #### `test_withdraw_modal_shows_pool_balance` · smoke · CRITICAL
-- **Что:** Баланс в модалке > 0 и соответствует данным portfolio API (оба > 0, ненулевые).
-- **Как:** Парсит "Balance: X" из `modal.balance_text()`, сравнивает с `wallet_portfolio` (фикстура). Точное совпадение не ожидается (vault token ≠ USDT), проверяется только ненулевость обоих.
+- **Что:** Баланс в модалке (pool tokens) соответствует portfolio API с учётом tokenPrice (погрешность < 5%).
+- **Как:** `api_balance_tokens = totalBalance / 10^6 / tokenPrice` → парсит "Balance: X" → сравнивает с допуском 5%.
+- **Фикстуры:** `wallet_portfolio`, `test_pool_id`, `pool_info_multi_token`.
 
 #### `test_withdraw_modal_has_request_withdrawal_button` · smoke · CRITICAL
-- **Что:** Кнопка "Request Withdrawal" видна.
-- **Как:** `modal.request_withdrawal_button().wait_for(state="visible", timeout=5_000)`.
+- **Что:** Кнопка "Request Withdrawal" видна и недоступна при пустом инпуте.
+- **Как:** `request_withdrawal_button().wait_for(state="visible")` + `is_disabled()`.
 
 #### `test_withdraw_modal_pool_input_updates_token_input` · smoke · CRITICAL
-- **Что:** Ввод "1" в pool token input (sellCoin) пересчитывает withdrawal token input (buyCoin).
-- **Как:** `modal.pool_token_input().fill("1")` → `wait_for_timeout(1000)` → `modal.withdraw_token_input().input_value()` не пустой и не "0".
+- **Что:** Ввод случайного количества pool tokens в sellCoin пересчитывает buyCoin (USDT). Точность: `buy ≈ sell × tokenPrice` (погрешность < 2%).
+- **Как:** Генерирует `sell_amount = random(0.1, api_balance_tokens)` с 1 децималом → `fill(sell_amount)` → сравнивает `buy_value` с `sell_amount × tokenPrice`.
+- **Фикстуры:** `wallet_portfolio`, `test_pool_id`, `pool_info_multi_token`.
 
 #### `test_withdraw_modal_token_input_updates_pool_input` · smoke · CRITICAL
-- **Что:** Ввод "1" в withdrawal token input (buyCoin) пересчитывает pool token input (sellCoin).
-- **Как:** Обратная проверка взаимосвязи инпутов.
+- **Что:** Ввод случайной суммы USDT в buyCoin пересчитывает sellCoin (pool tokens). Точность: `sell ≈ buy / tokenPrice` (погрешность < 2%).
+- **Как:** Генерирует `buy_amount = random(0.1, api_balance_usdt)` с 1 децималом → `fill(buy_amount)` → сравнивает `sell_value` с `buy_amount / tokenPrice`.
+- **Фикстуры:** `wallet_portfolio`, `test_pool_id`, `pool_info_multi_token`.
 
 #### `test_withdraw_modal_max_button` · smoke · CRITICAL
-- **Что:** Клик MAX заполняет pool token input полным балансом (погрешность < 1% от отображаемого Balance).
-- **Как:** Сохраняет значение из "Balance: X" → `modal.max_button().click()` → сравнивает float значения с допуском 1%.
+- **Что:** Клик MAX заполняет sellCoin полным балансом (погрешность < 1% от отображаемого "Balance: X").
+- **Как:** Сохраняет значение из "Balance: X" → `max_button().click()` → сравнивает float значения с допуском 1%.
+
+**Негативные сценарии:**
+
+#### `test_withdraw_modal_amount_exceeds_balance_shows_error` · smoke · CRITICAL
+- **Что:** Ввод в sellCoin суммы > баланса показывает ошибку "Not enough pool tokens..." и дизейблит кнопку.
+- **Как:** Вводит `api_balance_tokens × 1.1 + 1` → ждёт текст "Not enough pool tokens" → `request_withdrawal_button().is_disabled()`.
+
+#### `test_withdraw_modal_usdt_exceeds_balance_shows_error` · smoke · CRITICAL
+- **Что:** Ввод в buyCoin суммы USDT > баланса показывает ту же ошибку "Not enough pool tokens..." через второй инпут.
+- **Как:** Вводит `api_balance_usdt × 1.1 + 1` в `withdraw_token_input` → ждёт ошибку → `is_disabled()`.
+
+#### `test_withdraw_modal_zero_amount_shows_error` · smoke · NORMAL
+- **Что:** Ввод 0 в sellCoin показывает ошибку "Please indicate the withdrawal sum...".
+- **Как:** `pool_token_input().fill("0")` → ждёт текст "Please indicate the withdrawal sum".
+
+#### `test_withdraw_modal_clear_input_disables_button` · smoke · NORMAL
+- **Что:** После очистки инпута (ввели "1", потом "") кнопка снова дизейблится.
+- **Как:** `fill("1")` → `fill("")` → `request_withdrawal_button().is_disabled()`.
+
+#### `test_withdraw_modal_reopen_resets_inputs` · smoke · NORMAL
+- **Что:** После закрытия и повторного открытия оба инпута сброшены в пустое/нулевое состояние.
+- **Как:** Вводит "1" → `modal.close()` (клик по крестику) → `withdraw_button().click()` → проверяет что `sellCoin` и `buyCoin` пустые или "0".
 
 #### `test_withdraw_triggers_signing` · smoke · CRITICAL (TBD)
 - **Что:** Клик Request Withdrawal после MAX запускает signing flow.

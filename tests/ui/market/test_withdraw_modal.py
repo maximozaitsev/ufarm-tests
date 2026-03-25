@@ -301,6 +301,193 @@ def test_withdraw_modal_max_button(page_with_wallet_on_pool):
         )
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# Негативные сценарии
+# ══════════════════════════════════════════════════════════════════════════════
+
+@allure.epic("Market")
+@allure.feature("UI")
+@allure.story("Withdrawal")
+@allure.title("Withdraw modal: amount exceeding balance shows error")
+@allure.severity(allure.severity_level.CRITICAL)
+def test_withdraw_modal_amount_exceeds_balance_shows_error(
+    page_with_wallet_on_pool, wallet_portfolio, test_pool_id, pool_info_multi_token
+):
+    """Ввод суммы больше баланса показывает ошибку 'Not enough pool tokens...'."""
+    mp = MarketplacePage(page_with_wallet_on_pool)
+    modal = WithdrawModal(page_with_wallet_on_pool)
+
+    pool_stat = next(
+        (p.poolStat for p in wallet_portfolio.pools if p.id == test_pool_id), None
+    )
+    assert pool_stat is not None, f"Pool {test_pool_id} not found in portfolio"
+    assert pool_info_multi_token.poolMetric is not None, "poolMetric not available for pool"
+
+    token_price = Decimal(str(pool_info_multi_token.poolMetric.tokenPrice))
+    USDT_DECIMALS = 6
+    api_balance_usdt = Decimal(pool_stat.totalBalance) / Decimal(10 ** USDT_DECIMALS)
+    api_balance_tokens = float(api_balance_usdt / token_price)
+    over_balance = round(api_balance_tokens * 1.1 + 1, 1)
+
+    with allure.step("Открываем модалку вывода"):
+        mp.wait_for_pool_page()
+        mp.wait_for_withdraw_button()
+        mp.withdraw_button().click()
+        modal.wait_for()
+
+    with allure.step(f"Вводим {over_balance} pool tokens (баланс ≈ {api_balance_tokens:.1f})"):
+        modal.pool_token_input().fill(str(over_balance))
+        page_with_wallet_on_pool.wait_for_timeout(500)
+
+    with allure.step("Появляется сообщение об ошибке"):
+        error = page_with_wallet_on_pool.get_by_text("Not enough pool tokens", exact=False)
+        error.wait_for(state="visible", timeout=3_000)
+
+    with allure.step("Кнопка Request Withdrawal недоступна"):
+        assert modal.request_withdrawal_button().is_disabled(), (
+            "Request Withdrawal should be disabled when amount exceeds balance"
+        )
+
+
+@allure.epic("Market")
+@allure.feature("UI")
+@allure.story("Withdrawal")
+@allure.title("Withdraw modal: zero amount shows error")
+@allure.severity(allure.severity_level.NORMAL)
+def test_withdraw_modal_zero_amount_shows_error(page_with_wallet_on_pool):
+    """Ввод 0 в pool token input показывает ошибку 'Please indicate the withdrawal sum...'."""
+    mp = MarketplacePage(page_with_wallet_on_pool)
+    modal = WithdrawModal(page_with_wallet_on_pool)
+
+    with allure.step("Открываем модалку вывода"):
+        mp.wait_for_pool_page()
+        mp.wait_for_withdraw_button()
+        mp.withdraw_button().click()
+        modal.wait_for()
+
+    with allure.step("Вводим 0 в pool token input"):
+        modal.pool_token_input().fill("0")
+        page_with_wallet_on_pool.wait_for_timeout(500)
+
+    with allure.step("Появляется сообщение об ошибке"):
+        error = page_with_wallet_on_pool.get_by_text("Please indicate the withdrawal sum", exact=False)
+        error.wait_for(state="visible", timeout=3_000)
+
+    with allure.step("Кнопка Request Withdrawal недоступна"):
+        assert modal.request_withdrawal_button().is_disabled(), (
+            "Request Withdrawal should be disabled when amount is zero"
+        )
+
+
+@allure.epic("Market")
+@allure.feature("UI")
+@allure.story("Withdrawal")
+@allure.title("Withdraw modal: USDT amount exceeding balance shows error")
+@allure.severity(allure.severity_level.CRITICAL)
+def test_withdraw_modal_usdt_exceeds_balance_shows_error(
+    page_with_wallet_on_pool, wallet_portfolio, test_pool_id, pool_info_multi_token
+):
+    """Ввод суммы USDT больше баланса через buyCoin input показывает ошибку 'Not enough pool tokens...'."""
+    mp = MarketplacePage(page_with_wallet_on_pool)
+    modal = WithdrawModal(page_with_wallet_on_pool)
+
+    pool_stat = next(
+        (p.poolStat for p in wallet_portfolio.pools if p.id == test_pool_id), None
+    )
+    assert pool_stat is not None, f"Pool {test_pool_id} not found in portfolio"
+    assert pool_info_multi_token.poolMetric is not None, "poolMetric not available for pool"
+
+    USDT_DECIMALS = 6
+    api_balance_usdt = float(Decimal(pool_stat.totalBalance) / Decimal(10 ** USDT_DECIMALS))
+    over_balance_usdt = round(api_balance_usdt * 1.1 + 1, 1)
+
+    with allure.step("Открываем модалку вывода"):
+        mp.wait_for_pool_page()
+        mp.wait_for_withdraw_button()
+        mp.withdraw_button().click()
+        modal.wait_for()
+
+    with allure.step(f"Вводим {over_balance_usdt} USDT в withdrawal token input (баланс ≈ {api_balance_usdt:.1f} USDT)"):
+        modal.withdraw_token_input().fill(str(over_balance_usdt))
+        page_with_wallet_on_pool.wait_for_timeout(500)
+
+    with allure.step("Появляется сообщение об ошибке"):
+        error = page_with_wallet_on_pool.get_by_text("Not enough pool tokens", exact=False)
+        error.wait_for(state="visible", timeout=3_000)
+
+    with allure.step("Кнопка Request Withdrawal недоступна"):
+        assert modal.request_withdrawal_button().is_disabled(), (
+            "Request Withdrawal should be disabled when USDT amount exceeds balance"
+        )
+
+
+@allure.epic("Market")
+@allure.feature("UI")
+@allure.story("Withdrawal")
+@allure.title("Withdraw modal: clearing input after fill disables submit button")
+@allure.severity(allure.severity_level.NORMAL)
+def test_withdraw_modal_clear_input_disables_button(page_with_wallet_on_pool):
+    """Очистка инпута после ввода валидной суммы снова дизейблит кнопку Request Withdrawal."""
+    mp = MarketplacePage(page_with_wallet_on_pool)
+    modal = WithdrawModal(page_with_wallet_on_pool)
+
+    with allure.step("Открываем модалку вывода"):
+        mp.wait_for_pool_page()
+        mp.wait_for_withdraw_button()
+        mp.withdraw_button().click()
+        modal.wait_for()
+
+    with allure.step("Вводим валидную сумму '1'"):
+        modal.pool_token_input().fill("1")
+        page_with_wallet_on_pool.wait_for_timeout(500)
+
+    with allure.step("Очищаем инпут"):
+        modal.pool_token_input().fill("")
+        page_with_wallet_on_pool.wait_for_timeout(500)
+
+    with allure.step("Кнопка Request Withdrawal снова недоступна"):
+        assert modal.request_withdrawal_button().is_disabled(), (
+            "Request Withdrawal should be disabled after clearing input"
+        )
+
+
+@allure.epic("Market")
+@allure.feature("UI")
+@allure.story("Withdrawal")
+@allure.title("Withdraw modal: close and reopen resets inputs")
+@allure.severity(allure.severity_level.NORMAL)
+def test_withdraw_modal_reopen_resets_inputs(page_with_wallet_on_pool):
+    """После закрытия и повторного открытия модалки инпуты сброшены в начальное состояние."""
+    mp = MarketplacePage(page_with_wallet_on_pool)
+    modal = WithdrawModal(page_with_wallet_on_pool)
+
+    with allure.step("Открываем модалку, вводим '1'"):
+        mp.wait_for_pool_page()
+        mp.wait_for_withdraw_button()
+        mp.withdraw_button().click()
+        modal.wait_for()
+        modal.pool_token_input().fill("1")
+
+    with allure.step("Закрываем модалку кликом на крестик"):
+        modal.close()
+
+    with allure.step("Открываем модалку повторно"):
+        mp.withdraw_button().click()
+        modal.wait_for()
+
+    with allure.step("Pool token input пустой или нулевой"):
+        sell_value = modal.pool_token_input().input_value()
+        assert sell_value in ("", "0"), (
+            f"Pool token input not reset after reopen: {sell_value!r}"
+        )
+
+    with allure.step("Withdrawal token input пустой или нулевой"):
+        buy_value = modal.withdraw_token_input().input_value()
+        assert buy_value in ("", "0"), (
+            f"Withdrawal token input not reset after reopen: {buy_value!r}"
+        )
+
+
 @allure.epic("Market")
 @allure.feature("UI")
 @allure.story("Withdrawal")

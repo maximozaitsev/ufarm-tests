@@ -35,6 +35,7 @@ def test_withdraw_modal_opens(page_with_wallet_on_pool):
 
     with allure.step("Модалка вывода открылась"):
         modal.wait_for()
+        modal.request_withdrawal_button().wait_for(state="visible", timeout=5_000)
 
     with allure.step("Скриншот модалки вывода"):
         allure.attach(
@@ -49,17 +50,32 @@ def test_withdraw_modal_opens(page_with_wallet_on_pool):
 @allure.story("Withdrawal")
 @allure.title("Withdraw modal shows pool balance matching portfolio API")
 @allure.severity(allure.severity_level.CRITICAL)
-def test_withdraw_modal_shows_pool_balance(page_with_wallet_on_pool, wallet_portfolio, test_pool_id):
-    """Баланс в модалке вывода > 0 и соответствует данным из portfolio API."""
+def test_withdraw_modal_shows_pool_balance(
+    page_with_wallet_on_pool, wallet_portfolio, test_pool_id, pool_info_multi_token
+):
+    """Баланс в модалке вывода > 0 и соответствует данным из portfolio API с учётом tokenPrice.
+
+    portfolio.totalBalance — стоимость инвестиции в USDT (наименьшие единицы, 6 decimals).
+    Модалка показывает баланс в токенах пула (pool tokens).
+    Связь: ui_balance ≈ totalBalance / 10^6 / tokenPrice (погрешность < 5%).
+    """
+    import re
+
     mp = MarketplacePage(page_with_wallet_on_pool)
     modal = WithdrawModal(page_with_wallet_on_pool)
 
-    # Находим пул в portfolio
     pool_stat = next(
         (p.poolStat for p in wallet_portfolio.pools if p.id == test_pool_id),
         None,
     )
     assert pool_stat is not None, f"Pool {test_pool_id} not found in portfolio"
+    assert pool_info_multi_token.poolMetric is not None, "poolMetric not available for pool"
+
+    token_price = Decimal(str(pool_info_multi_token.poolMetric.tokenPrice))
+    # totalBalance хранится в USDT (6 decimals на Arbitrum)
+    USDT_DECIMALS = 6
+    api_balance_usdt = Decimal(pool_stat.totalBalance) / Decimal(10 ** USDT_DECIMALS)
+    api_balance_tokens = api_balance_usdt / token_price
 
     with allure.step("Открываем модалку вывода"):
         mp.wait_for_pool_page()
@@ -70,26 +86,21 @@ def test_withdraw_modal_shows_pool_balance(page_with_wallet_on_pool, wallet_port
     with allure.step("Текст баланса в модалке содержит ненулевое значение"):
         balance_text = modal.balance_text()
         allure.attach(balance_text, name="Balance text", attachment_type=allure.attachment_type.TEXT)
-        # Извлекаем число после "Balance: "
-        import re
         m = re.search(r"Balance:\s*([\d.]+)", balance_text)
         assert m, f"Could not parse balance from: {balance_text!r}"
         ui_balance = float(m.group(1))
         assert ui_balance > 0, f"Balance in modal is zero: {ui_balance}"
 
-    with allure.step("Баланс в UI близок к значению из portfolio API (погрешность < 5%)"):
-        # portfolio totalBalance в наименьших единицах (decimals=6)
-        # wallet_portfolio.pools содержит PortfolioPool, у которого decimals из Pool
-        pool_entry = next(p for p in wallet_portfolio.pools if p.id == test_pool_id)
-        api_balance_tokens = Decimal(pool_stat.totalBalance) / Decimal(10 ** pool_entry.decimals)
-        # UI показывает баланс в токенах пула, не в USDT — соотношение может отличаться
-        # Проверяем что оба > 0 и примерно одного порядка (не ожидаем точного совпадения
-        # из-за разницы в курсе vault token/USDT)
-        assert float(api_balance_tokens) > 0, "API portfolio balance is zero"
+    with allure.step(f"Баланс в UI ≈ portfolio / tokenPrice (погрешность < 5%)"):
+        expected = float(api_balance_tokens)
+        diff = abs(ui_balance - expected) / max(expected, 1e-9)
         allure.attach(
-            f"UI: {ui_balance}, API (USDT equivalent): {float(api_balance_tokens):.6f}",
+            f"UI: {ui_balance}, API (totalBalance/tokenPrice): {expected:.6f}, diff: {diff:.2%}",
             name="Balance comparison",
             attachment_type=allure.attachment_type.TEXT,
+        )
+        assert diff < 0.05, (
+            f"UI balance {ui_balance} differs from API-derived {expected:.6f} by {diff:.2%} (> 5%)"
         )
 
 
@@ -111,16 +122,43 @@ def test_withdraw_modal_has_request_withdrawal_button(page_with_wallet_on_pool):
     with allure.step("Кнопка 'Request Withdrawal' видна"):
         modal.request_withdrawal_button().wait_for(state="visible", timeout=5_000)
 
+    with allure.step("Кнопка 'Request Withdrawal' неактивна при пустом инпуте"):
+        assert modal.request_withdrawal_button().is_disabled(), (
+            "Request Withdrawal button should be disabled when input is empty"
+        )
+
 
 @allure.epic("Market")
 @allure.feature("UI")
 @allure.story("Withdrawal")
 @allure.title("Withdraw modal: pool token input updates withdrawal token input")
 @allure.severity(allure.severity_level.CRITICAL)
-def test_withdraw_modal_pool_input_updates_token_input(page_with_wallet_on_pool):
-    """Ввод суммы в pool token input автоматически пересчитывает withdrawal token input."""
+def test_withdraw_modal_pool_input_updates_token_input(
+    page_with_wallet_on_pool, wallet_portfolio, test_pool_id, pool_info_multi_token
+):
+    """Ввод случайной суммы в pool token input пересчитывает withdrawal token input.
+
+    Случайное число с 1 децималом в диапазоне (0, баланс_токенов_пула].
+    buy_coin ≈ sell_amount × tokenPrice (погрешность < 2%).
+    """
+    import random
+
     mp = MarketplacePage(page_with_wallet_on_pool)
     modal = WithdrawModal(page_with_wallet_on_pool)
+
+    pool_stat = next(
+        (p.poolStat for p in wallet_portfolio.pools if p.id == test_pool_id), None
+    )
+    assert pool_stat is not None, f"Pool {test_pool_id} not found in portfolio"
+    assert pool_info_multi_token.poolMetric is not None, "poolMetric not available for pool"
+
+    token_price = Decimal(str(pool_info_multi_token.poolMetric.tokenPrice))
+    USDT_DECIMALS = 6
+    api_balance_usdt = Decimal(pool_stat.totalBalance) / Decimal(10 ** USDT_DECIMALS)
+    api_balance_tokens = float(api_balance_usdt / token_price)
+
+    # Случайное число с 1 децималом в диапазоне (0, баланс_токенов]
+    sell_amount = round(random.uniform(0.1, api_balance_tokens), 1)
 
     with allure.step("Открываем модалку вывода"):
         mp.wait_for_pool_page()
@@ -128,19 +166,26 @@ def test_withdraw_modal_pool_input_updates_token_input(page_with_wallet_on_pool)
         mp.withdraw_button().click()
         modal.wait_for()
 
-    with allure.step("Вводим '1' в pool token input (sell coin)"):
-        modal.pool_token_input().fill("1")
+    with allure.step(f"Вводим {sell_amount} в pool token input (диапазон 0..{api_balance_tokens:.1f})"):
+        modal.pool_token_input().fill(str(sell_amount))
         page_with_wallet_on_pool.wait_for_timeout(1_000)
 
-    with allure.step("Withdrawal token input (buy coin) обновился"):
+    with allure.step(f"Withdrawal token input (buy coin) ≈ {sell_amount} × tokenPrice ({float(token_price):.4f})"):
         buy_value = modal.withdraw_token_input().input_value()
         assert buy_value not in ("", "0"), (
             f"Buy coin input not updated after filling sell coin. Got: {buy_value!r}"
         )
+        expected_usdt = sell_amount * float(token_price)
+        actual_usdt = float(buy_value.replace(",", "."))
+        diff = abs(actual_usdt - expected_usdt) / max(expected_usdt, 1e-9)
         allure.attach(
-            f"Pool token input: 1 → Withdrawal token input: {buy_value}",
+            f"sell: {sell_amount} pool tokens × {float(token_price):.4f} = {expected_usdt:.4f} USDT\n"
+            f"buy input: {actual_usdt:.4f} USDT, diff: {diff:.2%}",
             name="Input cross-update",
             attachment_type=allure.attachment_type.TEXT,
+        )
+        assert diff < 0.02, (
+            f"Buy coin {actual_usdt:.4f} differs from expected {expected_usdt:.4f} by {diff:.2%} (> 2%)"
         )
 
 
@@ -149,10 +194,31 @@ def test_withdraw_modal_pool_input_updates_token_input(page_with_wallet_on_pool)
 @allure.story("Withdrawal")
 @allure.title("Withdraw modal: withdrawal token input updates pool token input")
 @allure.severity(allure.severity_level.CRITICAL)
-def test_withdraw_modal_token_input_updates_pool_input(page_with_wallet_on_pool):
-    """Ввод суммы в withdrawal token input автоматически пересчитывает pool token input."""
+def test_withdraw_modal_token_input_updates_pool_input(
+    page_with_wallet_on_pool, wallet_portfolio, test_pool_id, pool_info_multi_token
+):
+    """Ввод случайной суммы USDT в withdrawal token input пересчитывает pool token input.
+
+    Случайное число с 1 децималом в диапазоне (0, баланс_в_USDT].
+    sell_coin ≈ buy_amount / tokenPrice (погрешность < 2%).
+    """
+    import random
+
     mp = MarketplacePage(page_with_wallet_on_pool)
     modal = WithdrawModal(page_with_wallet_on_pool)
+
+    pool_stat = next(
+        (p.poolStat for p in wallet_portfolio.pools if p.id == test_pool_id), None
+    )
+    assert pool_stat is not None, f"Pool {test_pool_id} not found in portfolio"
+    assert pool_info_multi_token.poolMetric is not None, "poolMetric not available for pool"
+
+    token_price = Decimal(str(pool_info_multi_token.poolMetric.tokenPrice))
+    USDT_DECIMALS = 6
+    api_balance_usdt = float(Decimal(pool_stat.totalBalance) / Decimal(10 ** USDT_DECIMALS))
+
+    # Случайная сумма USDT с 1 децималом в диапазоне (0, баланс_в_USDT]
+    buy_amount = round(random.uniform(0.1, api_balance_usdt), 1)
 
     with allure.step("Открываем модалку вывода"):
         mp.wait_for_pool_page()
@@ -160,19 +226,26 @@ def test_withdraw_modal_token_input_updates_pool_input(page_with_wallet_on_pool)
         mp.withdraw_button().click()
         modal.wait_for()
 
-    with allure.step("Вводим '1' в withdrawal token input (buy coin)"):
-        modal.withdraw_token_input().fill("1")
+    with allure.step(f"Вводим {buy_amount} USDT в withdrawal token input (диапазон 0..{api_balance_usdt:.1f})"):
+        modal.withdraw_token_input().fill(str(buy_amount))
         page_with_wallet_on_pool.wait_for_timeout(1_000)
 
-    with allure.step("Pool token input (sell coin) обновился"):
+    with allure.step(f"Pool token input (sell coin) ≈ {buy_amount} / tokenPrice ({float(token_price):.4f})"):
         sell_value = modal.pool_token_input().input_value()
         assert sell_value not in ("", "0"), (
             f"Sell coin input not updated after filling buy coin. Got: {sell_value!r}"
         )
+        expected_tokens = buy_amount / float(token_price)
+        actual_tokens = float(sell_value.replace(",", "."))
+        diff = abs(actual_tokens - expected_tokens) / max(expected_tokens, 1e-9)
         allure.attach(
-            f"Withdrawal token input: 1 → Pool token input: {sell_value}",
+            f"buy: {buy_amount} USDT / {float(token_price):.4f} = {expected_tokens:.4f} pool tokens\n"
+            f"sell input: {actual_tokens:.4f} pool tokens, diff: {diff:.2%}",
             name="Input cross-update",
             attachment_type=allure.attachment_type.TEXT,
+        )
+        assert diff < 0.02, (
+            f"Sell coin {actual_tokens:.4f} differs from expected {expected_tokens:.4f} by {diff:.2%} (> 2%)"
         )
 
 

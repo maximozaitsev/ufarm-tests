@@ -78,7 +78,7 @@ def page_with_whale_wallet_on_min_deposit_pool(browser, base_url, pool_min_depos
     """
     from core.ui.on_chain import get_erc20_balance, USDT_ARB
     from core.ui.wallet_injection import inject_wallet
-    import conftest as root_conftest
+    from core.ui.mocks import mock_auth_connect
 
     whale_balance = get_erc20_balance(_WHALE_WALLET, USDT_ARB)
     if whale_balance < 5000:
@@ -87,7 +87,7 @@ def page_with_whale_wallet_on_min_deposit_pool(browser, base_url, pool_min_depos
         )
 
     page = browser.new_page()
-    root_conftest._mock_auth_connect(page)
+    mock_auth_connect(page)
     page.goto(
         f"{base_url}/marketplace/pool/{pool_min_deposit_id}",
         wait_until="domcontentloaded",

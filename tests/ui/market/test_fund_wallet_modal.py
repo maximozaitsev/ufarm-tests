@@ -67,11 +67,6 @@ def test_fund_wallet_modal_opens(page_with_zero_wallet_on_min_deposit_pool):
 
     with allure.step("Открываем модалку Fund wallet"):
         open_fund_wallet_modal(page_with_zero_wallet_on_min_deposit_pool, mp, modal)
-        allure.attach(
-            page_with_zero_wallet_on_min_deposit_pool.screenshot(),
-            name="Fund wallet modal",
-            attachment_type=allure.attachment_type.PNG,
-        )
 
     with allure.step("Ожидаем появления модалки Fund wallet"):
         modal.wait_opened()

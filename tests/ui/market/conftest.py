@@ -6,6 +6,10 @@ import pytest
 from core.api.models.pool import PoolDetailResponse
 from core.api.models.portfolio import Portfolio
 
+# Публичный адрес Binance hot wallet на Arbitrum — держит сотни миллионов USDT.
+# Используется для тестов, требующих кошелёк с балансом >= min deposit Pool C (5000 USDT).
+_WHALE_WALLET = "0xF977814e90dA44bFA03b6295A0616a897441aceC"
+
 # ── Карта сети по имени окружения ─────────────────────────────────────────────
 NETWORK_BY_ENV = {
     "demo": "Arbitrum",
@@ -61,3 +65,39 @@ def wallet_portfolio(api_client, test_wallet_address) -> Portfolio:
 def network_name(env_name) -> str:
     """Название сети для текущего окружения (используется в проверке текста модалок)."""
     return NETWORK_BY_ENV[env_name]
+
+
+@pytest.fixture(scope="module")
+def page_with_whale_wallet_on_min_deposit_pool(browser, base_url, pool_min_deposit_id):
+    """Playwright Page на Pool C с Binance hot wallet (баланс >> 5000 USDT).
+
+    Используется для тестов валидации суммы ниже min deposit в модалке депозита.
+    scope=module — Pool C делает долгие polling-запросы (networkidle недостижим).
+
+    При старте проверяет что баланс кошелька >= 5000 USDT, иначе тест скипается.
+    """
+    from core.ui.on_chain import get_erc20_balance, USDT_ARB
+    from core.ui.wallet_injection import inject_wallet
+    import conftest as root_conftest
+
+    whale_balance = get_erc20_balance(_WHALE_WALLET, USDT_ARB)
+    if whale_balance < 5000:
+        pytest.skip(
+            f"Whale wallet {_WHALE_WALLET} balance dropped below 5000 USDT: {whale_balance}"
+        )
+
+    page = browser.new_page()
+    root_conftest._mock_auth_connect(page)
+    page.goto(
+        f"{base_url}/marketplace/pool/{pool_min_deposit_id}",
+        wait_until="domcontentloaded",
+        timeout=60_000,
+    )
+    page.get_by_role("heading", level=1).wait_for(timeout=30_000)
+    inject_wallet(page, _WHALE_WALLET)
+    try:
+        page.wait_for_load_state("networkidle", timeout=10_000)
+    except Exception:
+        pass
+    yield page
+    page.close()

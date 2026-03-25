@@ -59,8 +59,37 @@ class DepositModal:
         return self.page.locator("#poolDepositConfirm .mantine-Button-label").inner_text().lower()
 
     def token_selector(self):
-        """Иконка токена в форме (клик → открывает дропдаун в multi-token пуле)."""
-        return self._body.locator("img[alt='token']").first
+        """Враппер текущего токена (клик → открывает дропдаун в multi-token пуле).
+
+        Кликабелен только в multi-token пуле (нет _noPointer_ класса).
+        """
+        return self._body.locator("[class*='current']")
+
+    def token_selector_arrow(self):
+        """Стрелка дропдауна рядом с иконкой токена.
+
+        Присутствует только в multi-token пуле.
+        В single-token пуле отсутствует — элемент имеет класс _noPointer_ и не кликабелен.
+        """
+        return self._body.locator("[class*='arrowWrapper']")
+
+    def current_token_ticker(self) -> str:
+        """Тикер текущего выбранного токена, например 'USDT'.
+
+        В deposit modal селектор показывает баланс ('Balance\\n2 USDC') вместо отдельного
+        ticker-элемента. Тикер извлекается как последнее слово из тега <p>.
+        """
+        text = self._body.locator("[class*='current'] [class*='balance'] p").inner_text()
+        # "2 USDC" → "USDC"
+        return text.strip().split()[-1]
+
+    def token_option(self, ticker: str):
+        """Конкретная опция в дропдауне по тикеру (например 'USDC').
+
+        В dropdown каждый элемент содержит [class*='balance'] p с текстом вида '1.82 USDC'.
+        Фильтруем <p> по вхождению тикера — 'USDC' найдёт '1.82 USDC'.
+        """
+        return self.token_dropdown().locator("[class*='balance'] p").filter(has_text=ticker)
 
     def close(self):
         self.page.keyboard.press("Escape")

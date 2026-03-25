@@ -1,0 +1,37 @@
+[
+  {
+    "pool": "Single Token 8",
+    "valueManaged": "3100145",
+    "status": "active"
+  },
+  {
+    "pool": "REF TEST",
+    "valueManaged": "21042614",
+    "status": "active"
+  },
+  {
+    "pool": "Target APY pool",
+    "valueManaged": "3250945",
+    "status": "active"
+  },
+  {
+    "pool": "scp",
+    "valueManaged": "8842572",
+    "status": "active"
+  },
+  {
+    "pool": "DeFi USDC only",
+    "valueManaged": "23446187",
+    "status": "active"
+  },
+  {
+    "pool": "Every Day Pool One",
+    "valueManaged": "16128729",
+    "status": "active"
+  },
+  {
+    "pool": "Demo Pool 1st",
+    "valueManaged": "3015939",
+    "status": "active"
+  }
+]

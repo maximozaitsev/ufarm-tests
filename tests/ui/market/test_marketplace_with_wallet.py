@@ -28,7 +28,7 @@ def test_wallet_address_shown_in_header(page_with_wallet, base_url, test_wallet_
     short_address = test_wallet_address[:6].lower()
 
     with allure.step(f"В хедере виден адрес кошелька (начало: {short_address}...)"):
-        header_text = page_with_wallet.locator("header").inner_text().lower()
+        header_text = mp.nav_header().inner_text().lower()
         assert short_address in header_text, (
             f"Wallet address not visible in header. "
             f"Expected to find '{short_address}' in: {header_text!r}"
@@ -163,5 +163,85 @@ def test_withdraw_modal_opens(page_with_wallet_on_pool):
         allure.attach(
             page_with_wallet_on_pool.screenshot(),
             name="Withdraw modal",
+            attachment_type=allure.attachment_type.PNG,
+        )
+
+
+@pytest.mark.ui
+@pytest.mark.smoke
+@allure.epic("Market")
+@allure.feature("UI")
+@allure.story("Withdrawal")
+@allure.title("Withdraw button is not shown for wallet without deposits")
+@allure.severity(allure.severity_level.CRITICAL)
+def test_no_withdraw_button_for_wallet_without_deposits(page_with_zero_wallet_on_pool):
+    """Кнопка Withdraw не появляется если у кошелька нет активных депозитов в пуле.
+
+    Используется WALLET_ZERO_BALANCE на Pool B (TEST_POOL_ID).
+    После загрузки баланса по API кнопка Withdraw должна отсутствовать.
+    """
+    mp = MarketplacePage(page_with_zero_wallet_on_pool)
+
+    with allure.step("Ждём загрузки страницы пула"):
+        mp.wait_for_pool_page()
+
+    with allure.step("Ждём загрузки данных баланса (networkidle после inject_wallet)"):
+        page_with_zero_wallet_on_pool.wait_for_timeout(5_000)
+
+    with allure.step("Кнопка Deposit видна"):
+        assert mp.deposit_button().is_visible(), "Deposit button should be visible"
+
+    with allure.step("Скриншот страницы пула (кошелёк без депозитов)"):
+        allure.attach(
+            page_with_zero_wallet_on_pool.screenshot(),
+            name="Pool page zero balance wallet",
+            attachment_type=allure.attachment_type.PNG,
+        )
+
+    with allure.step("Кнопка Withdraw отсутствует"):
+        assert not mp.withdraw_button().is_visible(), (
+            "Withdraw button should not be visible for wallet without deposits"
+        )
+
+
+
+@pytest.mark.ui
+@pytest.mark.smoke
+@allure.epic("Market")
+@allure.feature("UI")
+@allure.story("Wallet Connection")
+@allure.title("SPA navigation preserves wallet connection")
+@allure.severity(allure.severity_level.CRITICAL)
+def test_spa_navigation_preserves_wallet(page_with_wallet_on_pool, test_wallet_address):
+    """SPA-навигация pool → marketplace → pool не теряет подключённый кошелёк."""
+    mp = MarketplacePage(page_with_wallet_on_pool)
+    short_address = test_wallet_address[:6].lower()
+
+    with allure.step("Стартуем на странице пула — кошелёк подключён"):
+        mp.wait_for_pool_page()
+        header_text = mp.nav_header().inner_text().lower()
+        assert short_address in header_text, "Wallet not connected at start"
+
+    with allure.step("Кликаем таб All products (SPA-переход на /marketplace)"):
+        mp.tab_all_products().click()
+        page_with_wallet_on_pool.wait_for_url("**/marketplace**", timeout=10_000)
+        mp.wait_for_pool_cards()
+
+    with allure.step("Кошелёк всё ещё подключён на странице маркета"):
+        header_text = mp.nav_header().inner_text().lower()
+        assert short_address in header_text, "Wallet lost after navigating to marketplace"
+
+    with allure.step("Переходим на страницу первого пула"):
+        mp.click_first_pool_card()
+        mp.wait_for_pool_page()
+
+    with allure.step("Кошелёк всё ещё подключён на странице пула"):
+        header_text = mp.nav_header().inner_text().lower()
+        assert short_address in header_text, "Wallet lost after navigating to pool page"
+
+    with allure.step("Скриншот после SPA-навигации"):
+        allure.attach(
+            page_with_wallet_on_pool.screenshot(),
+            name="Pool page after SPA navigation",
             attachment_type=allure.attachment_type.PNG,
         )

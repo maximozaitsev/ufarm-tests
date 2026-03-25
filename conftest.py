@@ -282,6 +282,24 @@ def page_with_zero_wallet_on_min_deposit_pool(browser, base_url, pool_min_deposi
 
 
 @pytest.fixture
+def page_with_zero_wallet_on_pool(browser, base_url, test_pool_id, wallet_zero_balance):
+    """Playwright Page на странице тестового пула (Pool B) с кошельком без депозитов.
+
+    Используется для проверки что кнопка Withdraw не появляется,
+    когда у кошелька нет активных позиций в пуле.
+    """
+    from core.ui.wallet_injection import inject_wallet
+
+    page = browser.new_page()
+    _mock_auth_connect(page)
+    page.goto(f"{base_url}/marketplace/pool/{test_pool_id}", wait_until="networkidle")
+    inject_wallet(page, wallet_zero_balance)
+    page.wait_for_load_state("networkidle", timeout=15_000)
+    yield page
+    page.close()
+
+
+@pytest.fixture
 def page_with_wallet(browser, base_url, test_wallet_address):
     """Playwright Page с программно подключённым тестовым кошельком.
 
@@ -298,6 +316,7 @@ def page_with_wallet(browser, base_url, test_wallet_address):
     from core.ui.wallet_injection import inject_wallet
 
     page = browser.new_page()
+    _mock_auth_connect(page)
     page.goto(f"{base_url}/marketplace", wait_until="networkidle")
     inject_wallet(page, test_wallet_address)
     yield page

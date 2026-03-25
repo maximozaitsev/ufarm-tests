@@ -30,18 +30,24 @@ class MarketplacePage(BasePage):
         self.page.get_by_role("heading", level=1).wait_for(timeout=timeout)
 
     # ── Header ───────────────────────────────────────────────────────────────
+    # На странице пула присутствуют два <header>: навигационный и секционный.
+    # nav_header() фильтрует по #connectWallet — кнопка есть только в навигационном.
+
+    def nav_header(self):
+        """Основной навигационный хедер (логотип, табы, кнопка кошелька)."""
+        return self.page.locator("header").filter(has=self.page.locator("#connectWallet"))
 
     def logo(self):
-        """Логотип UFarm (img с alt='logo' в хедере)."""
-        return self.page.locator("header img[alt='logo']")
+        """Логотип UFarm (img с alt='logo' в навигационном хедере)."""
+        return self.nav_header().locator("img[alt='logo']")
 
     def tab_all_products(self):
-        """Таб 'All products' в хедере. Не ARIA-таб — обычный div с текстом."""
-        return self.page.locator("header").get_by_text("All products", exact=True)
+        """Таб 'All products' в навигационном хедере."""
+        return self.nav_header().get_by_text("All products", exact=True)
 
     def tab_my_portfolio(self):
-        """Таб 'My portfolio' в хедере."""
-        return self.page.locator("header").get_by_text("My portfolio", exact=True)
+        """Таб 'My portfolio' в навигационном хедере."""
+        return self.nav_header().get_by_text("My portfolio", exact=True)
 
     def connect_wallet_button(self):
         """Кнопка Connect Wallet (первая — в хедере)."""
@@ -103,3 +109,14 @@ class MarketplacePage(BasePage):
     def connect_wallet_modal(self):
         """Модалка подключения кошелька (Reown Web3Modal)."""
         return self.page.locator("[data-testid='w3m-modal-card']")
+
+    # ── Wallet menu modal (custom, not Reown) ─────────────────────────────────
+    # Открывается кликом на кнопку #connectWallet в хедере (в connected-состоянии).
+    # Disconnect в меню не работает с inject_wallet — коннектор не реализует disconnect().
+
+    def wallet_header_button(self):
+        """Кнопка кошелька в хедере (в connected-состоянии открывает меню кошелька).
+
+        id="connectWallet" — стабильный атрибут, не зависит от CSS-модульных хэшей.
+        """
+        return self.page.locator("#connectWallet")

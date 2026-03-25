@@ -53,8 +53,10 @@ conftest.py               # фикстуры: api_client, leaderboard_api_client
                           #   page_with_wallet, page_with_wallet_on_pool,
                           #   page_with_wallet_on_single_token_pool,
                           #   page_with_zero_wallet_on_min_deposit_pool (scope=module),
+                          #   page_with_zero_wallet_on_pool,
                           #   pool_single_token_id, pool_min_deposit_id, wallet_zero_balance
-                          # _mock_auth_connect() — мок GET /auth/connect/{addr} до page.goto()
+                          # _mock_auth_connect() — мок GET /auth/connect/{addr} И
+                          #   POST /user/verification до page.goto() (предотвращает Terms)
 pytest.ini                # регистрация marks: api, ui, trx, smoke, regression, extended
 config/settings.py        # pydantic-settings, читает .env
 core/
@@ -70,8 +72,13 @@ core/
     on_chain.py           # get_erc20_balance(): on-chain USDT/USDC баланс через JSON-RPC
     pages/
       marketplace_page.py # MarketplacePage: пул-карточки, хедер, кнопки Deposit/Withdraw
-      deposit_modal.py    # DepositModal: инпут, MAX, gasless toggle, submit (#poolDepositConfirm)
-      withdraw_modal.py   # WithdrawModal: sellCoin/buyCoin инпуты, MAX, Request Withdrawal
+      deposit_modal.py    # DepositModal: инпут, MAX, gasless toggle, submit (#poolDepositConfirm),
+                          #   token_selector() → [class*='current'], token_selector_arrow(),
+                          #   current_token_ticker() → парсит [class*='balance'] p,
+                          #   token_option(ticker), token_dropdown()
+      withdraw_modal.py   # WithdrawModal: sellCoin/buyCoin инпуты, MAX, Request Withdrawal,
+                          #   token_selector() → [class*='current'], token_selector_arrow(),
+                          #   current_token_ticker() → [class*='ticker'], token_option(ticker)
       fund_wallet_modal.py # FundWalletModal: title, hint_text, buy crypto / receive funds
 tests/
   api/                    # pytest.mark.api
@@ -88,10 +95,18 @@ tests/
     market/               # pytest.mark.ui
       conftest.py         # pool_info_single_token, pool_info_multi_token, pool_info_min_deposit,
                           # wallet_usdt_balance, wallet_portfolio, network_name
+                          # page_with_whale_wallet_on_min_deposit_pool (scope=module) —
+                          #   Pool C + Binance hot wallet (_WHALE_WALLET, ~173M USDT),
+                          #   скип если баланс < 5000 USDT
       test_marketplace_no_wallet.py   # smoke: загрузка, хедер, карточки, навигация, модалка
-      test_marketplace_with_wallet.py # smoke: адрес в хедере, my-portfolio, deposit/withdraw кнопки
-      test_deposit_modal.py           # smoke: Pool A (single-token) + Pool B (multi-token)
-      test_withdraw_modal.py          # smoke: Pool B + TEST_WALLET_ADDRESS (кошелёк с балансом)
+      test_marketplace_with_wallet.py # smoke: адрес в хедере, my-portfolio, deposit/withdraw кнопки,
+                          #   кошелёк без депозитов не видит Withdraw, SPA-навигация
+      test_deposit_modal.py           # smoke: Pool A + Pool B; токен-дропдаун; инпут суммы
+                          #   (позитив/негатив); min deposit; Terms для нового пользователя
+                          #   page_with_new_user_on_pool — локальная фикстура для теста Terms
+                          #   _random_valid_deposit() — хелпер рандомной суммы (min_dep, balance)
+      test_withdraw_modal.py          # smoke: Pool B + TEST_WALLET_ADDRESS; Pool A (withdraw)
+                          #   токен-дропдаун; single-token без дропдауна
       test_fund_wallet_modal.py       # smoke: Pool C + WALLET_ZERO_BALANCE
     fund/                 # тесты фонда (будущее)
 scripts/
@@ -164,15 +179,19 @@ Allure-отчёт → GitHub Pages (ветка `gh-pages`).
 3. Вызывает `wagmiConfig._internal.store.setState({ status: "connected", connections: Map(...) })`
 4. Хедер перерисовывается: вместо "Connect Wallet" отображается адрес кошелька
 
-Четыре фикстуры в `conftest.py` инкапсулируют этот флоу:
+Фикстуры в `conftest.py` и `tests/ui/market/conftest.py`:
 - `page_with_wallet` — открывает `/marketplace`, инжектирует кошелёк. Для тестов на главной и SPA-навигации.
 - `page_with_wallet_on_pool` — открывает `/marketplace/pool/{TEST_POOL_ID}` (Pool B), инжектирует кошелёк, ждёт `networkidle`. Для тестов Deposit/Withdraw модалок (кошелёк с ненулевым балансом).
-- `page_with_wallet_on_single_token_pool` — открывает `/marketplace/pool/{POOL_SINGLE_TOKEN_ID}` (Pool A). Для тестов single-token deposit modal.
-- `page_with_zero_wallet_on_min_deposit_pool` — открывает `/marketplace/pool/{POOL_MIN_DEPOSIT_ID}` (Pool C), кошелёк WALLET_ZERO_BALANCE. **scope=module** — страница загружается один раз на весь модуль. Для тестов Fund wallet modal.
+- `page_with_wallet_on_single_token_pool` — открывает `/marketplace/pool/{POOL_SINGLE_TOKEN_ID}` (Pool A). TEST_WALLET_ADDRESS имеет депозит в Pool A → видна кнопка Withdraw.
+- `page_with_zero_wallet_on_min_deposit_pool` — Pool C + WALLET_ZERO_BALANCE. **scope=module**. Для тестов Fund wallet modal.
+- `page_with_zero_wallet_on_pool` — Pool B + WALLET_ZERO_BALANCE. Для проверки что Withdraw кнопка не появляется без депозитов.
+- `page_with_whale_wallet_on_min_deposit_pool` (market conftest, scope=module) — Pool C + Binance hot wallet (`0xF977814e...`, ~173M USDT). Для теста `deposit_below_min_deposit`. Проверяет баланс при старте, скипает если < 5000 USDT.
 
 **Почему scope=module для Pool C:** Pool C делает долгие polling-запросы (networkidle недостижим). Первый клик Deposit занимает ~15 сек (on-chain RPC). Module-scope позволяет загрузить страницу и прогреть кеш балансов один раз на все 7 тестов.
 
 **Важно:** inject_wallet выполняется ПОСЛЕ `page.goto()` на нужную страницу. `page.goto()` вызывает полный reload — состояние wagmi store сбрасывается. Поэтому нельзя инжектировать на `/marketplace` и потом делать `page.goto(pool_url)` — кошелёк потеряется.
+
+**Terms (PROOF OF AGREEMENT):** появляется когда `auth/connect` возвращает `createdAt: null` (новый пользователь) или `user/verification` возвращает ошибку. `_mock_auth_connect()` мокает оба эндпоинта до `page.goto()` — Terms гарантированно не появляются в обычных тестах. Для теста что Terms появляется используется `page_with_new_user_on_pool` (локальная фикстура в `test_deposit_modal.py`) с обратными моками.
 
 **Что не работает** (задокументировано в `wallet_injection.py`):
 - `window.ethereum` mock + `add_init_script` — AppKit не читает провайдер автоматически

@@ -154,21 +154,27 @@
 
 ### 4.2 Модалка депозита — `tests/ui/market/test_deposit_modal.py`
 
-> Вспомогательная функция `open_deposit_modal()` — кликает Deposit, ждёт heading "DEPOSIT" с таймаутом 15 сек. Если появился Terms/PROOF OF AGREEMENT — пропускает тест (`pytest.skip`).
+> Вспомогательная функция `open_deposit_modal()` — кликает Deposit, ждёт heading "DEPOSIT" с таймаутом 15 сек. Если DEPOSIT не появился — тест **FAIL** (не SKIP): Terms замоканы через `_mock_auth_connect()` и не должны появляться.
+>
+> `_mock_auth_connect()` мокает два эндпоинта до `page.goto()`:
+> - `GET /auth/connect/{address}` → `{createdAt: "2024-01-01T...", lastTopUp: null}` (пользователь существует)
+> - `POST /user/verification` → `{signature: "0x0", tier: 10, validTill: 9999999999}` (верификация всегда валидна)
+>
+> Хелпер `_random_valid_deposit(pool_info, wallet_balance)` — генерирует случайную сумму `(max(deposit_min, 0.01), wallet_balance]` с 2 децималами. Используется в нескольких тестах.
 
-**Pool A (single-token):** фикстура `page_with_wallet_on_single_token_pool` (POOL_SINGLE_TOKEN_ID + TEST_WALLET_ADDRESS)
+**Pool A (single-token):** фикстура `page_with_wallet_on_single_token_pool` (POOL_SINGLE_TOKEN_ID + TEST_WALLET_ADDRESS). TEST_WALLET_ADDRESS имеет депозит в Pool A.
 
 #### `test_deposit_modal_opens_single_token` · smoke · CRITICAL
 - **Что:** Модалка депозита открывается на single-token пуле.
 - **Как:** `open_deposit_modal()` → скриншот.
 
 #### `test_deposit_modal_single_token_no_dropdown` · smoke · NORMAL
-- **Что:** В single-token пуле нет дропдауна выбора токена (role=combobox или listbox).
-- **Как:** После открытия модалки проверяет отсутствие `[role='combobox']` и `[role='listbox']` внутри `.mantine-Modal-body`.
+- **Что:** В single-token пуле нет интерактивного дропдауна токенов: `[class*='arrowWrapper']` отсутствует в теле модалки.
+- **Как:** `modal.token_selector_arrow().count() == 0`. В single-token пуле элемент `_current_` имеет класс `_noPointer_` и не кликабелен.
 
 #### `test_deposit_modal_input_visible` · smoke · CRITICAL
 - **Что:** Поле ввода суммы видно.
-- **Как:** `modal.amount_input().is_visible()`.
+- **Как:** `open_deposit_modal()` → `modal.amount_input().is_visible()`.
 
 #### `test_deposit_modal_empty_input_button_disabled` · smoke · CRITICAL
 - **Что:** Кнопка submit отключена когда инпут пустой или = "0".
@@ -184,8 +190,8 @@
 - **Как:** `modal.gasless_toggle().is_checked()` + `modal.submit_button_text()`.
 
 #### `test_deposit_modal_gasless_off_shows_instant_deposit` · smoke · CRITICAL
-- **Что:** Отключение Gasless меняет текст кнопки на "instant deposit".
-- **Как:** `gasless_toggle().evaluate("el => el.click()")` → проверяет текст кнопки.
+- **Что:** Отключение Gasless меняет текст кнопки на "instant deposit". Скриншот делается только после того как кнопка уже показывает новый текст (wait_for перед screenshot).
+- **Как:** `gasless_toggle().evaluate("el => el.click()")` → ждёт текст "instant deposit" в кнопке → скриншот.
 
 #### `test_deposit_modal_gasless_on_shows_request_deposit` · smoke · NORMAL
 - **Что:** Повторное включение Gasless возвращает текст "request deposit".
@@ -198,8 +204,53 @@
 - **Как:** `open_deposit_modal()` → скриншот.
 
 #### `test_deposit_modal_multi_token_has_dropdown` · smoke · NORMAL
-- **Что:** Клик по иконке токена открывает дропдаун, в котором видны варианты из `availableValueTokens` пула (из API).
-- **Как:** `modal.token_selector().click()` → `modal.token_dropdown().wait_for(visible)` → проверяет видимость каждого токена.
+- **Что:** Клик по `[class*='current']` открывает дропдаун, в котором видны варианты из `availableValueTokens` пула (API).
+- **Как:** `modal.token_selector().click()` → `modal.token_dropdown().wait_for(visible)` → проверяет видимость каждого токена. API возвращает тикеры строчными буквами (`usdt`), UI показывает заглавными (`USDT`) — сравнение через `.upper()`.
+
+#### `test_deposit_modal_multi_token_default_token_in_available_list` · smoke · CRITICAL
+- **Что:** Тикер токена по умолчанию входит в список `availableValueTokens` пула (из API).
+- **Как:** `modal.current_token_ticker()` → `.upper()` → проверяет вхождение в `[t.upper() for t in pool_info_multi_token.availableValueTokens]`.
+- **Примечание:** В deposit modal тикер извлекается из `[class*='balance'] p` (текст вида "2 USDC"), последнее слово — тикер.
+
+#### `test_deposit_modal_multi_token_token_switch_changes_ticker` · smoke · CRITICAL
+- **Что:** Переключение токена в дропдауне обновляет тикер в селекторе.
+- **Как:** Запоминает `initial_ticker` → кликает `token_selector()` → ждёт dropdown → кликает `token_option(other_ticker)` → проверяет `current_token_ticker().upper() == other_ticker`.
+
+**Инпут суммы — позитивные:**
+
+#### `test_deposit_modal_valid_amount_enables_submit` · smoke · CRITICAL
+- **Что:** Ввод случайной суммы из диапазона `(min_deposit, wallet_balance]` активирует кнопку submit.
+- **Как:** `_random_valid_deposit(pool_info_single_token, wallet_usdt_balance)` → `fill(amount)` → `not submit_button().is_disabled()`.
+
+**Инпут суммы — негативные:**
+
+#### `test_deposit_modal_zero_amount_disables_submit` · smoke · NORMAL
+- **Что:** Ввод "0" держит кнопку submit задизейбленной.
+- **Как:** `fill("0")` → `submit_button().is_disabled()`.
+
+#### `test_deposit_modal_amount_exceeds_balance_disables_submit` · smoke · CRITICAL
+- **Что:** Ввод суммы больше on-chain баланса кошелька дизейблит кнопку submit.
+- **Как:** `over_balance = wallet_usdt_balance × 2 + 1` → `fill(over_balance)` → `submit_button().is_disabled()`.
+
+#### `test_deposit_modal_clear_input_disables_submit` · smoke · NORMAL
+- **Что:** Очистка инпута после ввода валидной суммы снова дизейблит submit.
+- **Как:** `fill(valid_amount)` → проверяет enabled → `fill("")` → `is_disabled()`.
+
+**Pool C (min deposit):** фикстура `page_with_whale_wallet_on_min_deposit_pool` (POOL_MIN_DEPOSIT_ID + Binance hot wallet)
+
+> Фикстура при старте проверяет on-chain баланс китового кошелька — скипает если < 5000 USDT. `_WHALE_WALLET = 0xF977814e...` (~173M USDT на Arbitrum).
+
+#### `test_deposit_modal_below_min_deposit_shows_error` · smoke · CRITICAL
+- **Что:** Ввод случайной суммы из диапазона `[1, min_deposit)` блокирует кнопку submit и показывает ошибку "Minimum: 5000".
+- **Как:** `random.uniform(1, float(min_deposit) - 0.01)` → `fill(amount)` → `submit_button().is_disabled()` → `get_by_text("Minimum: {display_min}")`.
+- **Фикстуры:** `pool_info_min_deposit`.
+
+**Terms (PROOF OF AGREEMENT):**
+
+#### `test_deposit_modal_terms_appear_for_new_user` · smoke · CRITICAL
+- **Что:** При `createdAt=null` (новый пользователь) при клике Deposit открывается PROOF OF AGREEMENT, а не форма депозита.
+- **Как:** Локальная фикстура `page_with_new_user_on_pool` мокает `auth/connect` → `{createdAt: null}` и `user/verification` → 404. Ждёт heading "PROOF OF AGREEMENT".
+- **Зачем:** Проверяет что Terms механизм работает и не ломается при изменениях в условиях показа.
 
 #### `test_deposit_triggers_signing` · smoke · CRITICAL (TBD)
 - **Что:** Клик submit после MAX запускает signing flow.
@@ -302,6 +353,27 @@
 #### `test_withdraw_modal_reopen_resets_inputs` · smoke · NORMAL
 - **Что:** После закрытия и повторного открытия оба инпута сброшены в пустое/нулевое состояние.
 - **Как:** Вводит "1" → `modal.close()` (клик по крестику) → `withdraw_button().click()` → проверяет что `sellCoin` и `buyCoin` пустые или "0".
+
+**Дропдаун токенов (multi-token пул — Pool B):**
+
+#### `test_withdraw_modal_multi_token_has_dropdown` · smoke · NORMAL
+- **Что:** В multi-token пуле дропдаун токенов присутствует, текущий токен входит в список доступных, все токены пула видны в дропдауне.
+- **Как:** `current_token_ticker().upper()` проверяется на вхождение в `[t.upper() for t in pool_info.available_tokens]` → клик `token_selector()` → для каждого тикера: `token_option(ticker.upper()).is_visible()`.
+- **Важно:** API возвращает тикеры в нижнем регистре (`usdt`, `usdc`) — сравнение через `.upper()`.
+- **Фикстуры:** `page_with_wallet_on_pool`, `pool_info_multi_token`.
+
+#### `test_withdraw_modal_token_switch_updates_output` · smoke · NORMAL
+- **Что:** Переключение токена в дропдауне меняет тикер текущего токена и обновляет поле buyCoin.
+- **Как:** Открывает дропдаун → выбирает токен, отличный от текущего → проверяет `new_ticker.upper() != initial_ticker` → `buy_coin_input().input_value() != ""`.
+- **Фикстуры:** `page_with_wallet_on_pool`, `pool_info_multi_token`.
+
+**Дропдаун токенов (single-token пул — Pool A):**
+
+#### `test_withdraw_modal_single_token_no_dropdown` · smoke · NORMAL
+- **Что:** В single-token пуле стрелка дропдауна (`[class*='arrowWrapper']`) отсутствует.
+- **Как:** `modal.token_selector_arrow().count() == 0`.
+- **Важно:** Элемент `[class*='current']` присутствует в обоих типах пулов (показывает токен), но `_arrowWrapper_` есть только в multi-token.
+- **Фикстуры:** `page_with_wallet_on_single_token_pool` (Pool A, TEST_WALLET_ADDRESS с депозитом).
 
 #### `test_withdraw_triggers_signing` · smoke · CRITICAL (TBD)
 - **Что:** Клик Request Withdrawal после MAX запускает signing flow.

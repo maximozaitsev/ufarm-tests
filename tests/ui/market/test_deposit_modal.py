@@ -8,6 +8,7 @@
   - Инпут суммы: позитивные и негативные сценарии
   - Клик submit → наблюдаем что происходит (TBD — запустить в HEADED=1)
 """
+import json
 import random
 from decimal import Decimal
 
@@ -18,9 +19,42 @@ from core.ui.pages.marketplace_page import MarketplacePage
 from core.ui.pages.deposit_modal import DepositModal
 
 
-pytestmark = [pytest.mark.ui, pytest.mark.smoke]
+@pytest.fixture
+def page_with_new_user_on_pool(browser, base_url, test_pool_id, test_wallet_address):
+    """Page на Pool B с кошельком, у которого createdAt=null (новый пользователь).
 
-_TERMS_HEADINGS = {"proof of agreement", "terms", "agreement"}
+    auth/connect возвращает createdAt=null → приложение показывает PROOF OF AGREEMENT.
+    user/verification возвращает 404 → верификация не пройдена.
+    Используется только для теста что Terms модалка появляется.
+    """
+    from core.ui.wallet_injection import inject_wallet
+
+    def _mock_new_user(page):
+        def _auth(route, _):
+            route.fulfill(
+                status=200,
+                content_type="application/json",
+                body=json.dumps({"createdAt": None, "lastTopUp": None}),
+            )
+        def _verification(route, _):
+            route.fulfill(
+                status=404,
+                content_type="application/json",
+                body=json.dumps({"message": "User not found"}),
+            )
+        page.route("**/auth/connect/**", _auth)
+        page.route("**/user/verification**", _verification)
+
+    page = browser.new_page()
+    _mock_new_user(page)
+    page.goto(f"{base_url}/marketplace/pool/{test_pool_id}", wait_until="networkidle")
+    inject_wallet(page, test_wallet_address)
+    page.wait_for_load_state("networkidle", timeout=15_000)
+    yield page
+    page.close()
+
+
+pytestmark = [pytest.mark.ui, pytest.mark.smoke]
 
 
 def _random_valid_deposit(pool_info, wallet_balance) -> float:
@@ -36,38 +70,34 @@ def _random_valid_deposit(pool_info, wallet_balance) -> float:
 
 
 def open_deposit_modal(page, mp: MarketplacePage, modal: DepositModal):
-    """Открывает модалку депозита; пропускает тест если появились Terms.
+    """Открывает модалку депозита и ждёт DEPOSIT heading.
 
-    В headless режиме приложение может сначала показать Terms или промежуточное
-    состояние — нельзя читать heading сразу. Ждём конкретный "DEPOSIT" heading
-    с таймаутом, и только если он не появился — проверяем что показалось.
+    Terms (PROOF OF AGREEMENT) замоканы через _mock_auth_connect() в conftest.py:
+      - GET /auth/connect/{address} → createdAt всегда не null
+      - POST /user/verification → всегда возвращает валидную подпись
+    Оба мока устанавливаются до page.goto() — Terms не должны появляться.
 
-    Terms (PROOF OF AGREEMENT) требует подписи кошелька — не поддерживается
-    при inject_wallet без приватного ключа. Тест будет SKIPPED до решения.
+    Если DEPOSIT heading не появился в течение 15 сек — тест падает (FAIL, не SKIP).
     """
     mp.wait_for_pool_page()
     mp.deposit_button().click()
     modal.wait_for()
 
-    # Ждём DEPOSIT heading (приложение может сначала показать Terms, потом Deposit)
+    # Ждём DEPOSIT heading — приложение может мгновенно показать его или
+    # сначала промежуточное состояние загрузки баланса.
     try:
         page.get_by_role("heading", name="DEPOSIT").wait_for(state="visible", timeout=15_000)
-        return  # Deposit modal открылась корректно
+        return
     except Exception:
         pass
 
-    # Deposit не появился — смотрим что открылось
     headings = page.locator(".mantine-Modal-content").first.locator(
         "h1, h2, h3, h4"
     ).all_inner_texts()
-    heading_lower = " ".join(h.strip().lower() for h in headings)
-
-    if any(t in heading_lower for t in _TERMS_HEADINGS):
-        pytest.skip(
-            f"Terms modal appeared — requires wallet signing, not supported with inject_wallet. "
-            f"Headings: {headings}"
-        )
-    pytest.skip(f"Expected deposit modal but got: {headings}")
+    pytest.fail(
+        f"Expected DEPOSIT modal but got: {headings}. "
+        "Check that _mock_auth_connect() mocks are applied before page.goto()."
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -594,6 +624,43 @@ def test_deposit_modal_below_min_deposit_shows_error(
         allure.attach(
             page_with_whale_wallet_on_min_deposit_pool.screenshot(),
             name="Below min deposit error",
+            attachment_type=allure.attachment_type.PNG,
+        )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Terms (PROOF OF AGREEMENT)
+# ══════════════════════════════════════════════════════════════════════════════
+
+@allure.epic("Market")
+@allure.feature("UI")
+@allure.story("Deposit")
+@allure.title("Deposit modal: PROOF OF AGREEMENT appears for new user without accepted terms")
+@allure.severity(allure.severity_level.CRITICAL)
+def test_deposit_modal_terms_appear_for_new_user(page_with_new_user_on_pool):
+    """Для нового пользователя (createdAt=null) при клике Deposit открывается PROOF OF AGREEMENT.
+
+    auth/connect замокан на createdAt=null, user/verification — на 404.
+    """
+    mp = MarketplacePage(page_with_new_user_on_pool)
+    modal = DepositModal(page_with_new_user_on_pool)
+
+    with allure.step("Ждём загрузки страницы пула"):
+        mp.wait_for_pool_page()
+
+    with allure.step("Кликаем Deposit"):
+        mp.deposit_button().click()
+        modal.wait_for()
+
+    with allure.step("Открылась модалка PROOF OF AGREEMENT (не deposit форма)"):
+        page_with_new_user_on_pool.get_by_role(
+            "heading", name="PROOF OF AGREEMENT", exact=False
+        ).wait_for(state="visible", timeout=15_000)
+
+    with allure.step("Скриншот модалки Terms"):
+        allure.attach(
+            page_with_new_user_on_pool.screenshot(),
+            name="PROOF OF AGREEMENT modal",
             attachment_type=allure.attachment_type.PNG,
         )
 

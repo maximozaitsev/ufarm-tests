@@ -1,1 +1,0 @@
-Pool token input: 1 → Withdrawal token input: 1.00

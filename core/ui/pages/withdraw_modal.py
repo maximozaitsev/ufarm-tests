@@ -46,6 +46,38 @@ class WithdrawModal:
         """Текст отображения баланса пула, например 'Balance: 3.005'."""
         return self._body.locator("text=Balance:").first.inner_text()
 
+    # ── Token selector (output token — buyCoin) ───────────────────────────────
+    # Присутствует только в multi-token пулах. В single-token пуле — только один
+    # токен без стрелки/дропдауна.
+    #
+    # [class*='current']   — текущий выбранный токен с иконкой-стрелкой (клик → открывает список)
+    # [class*='tokensList'] — список доступных токенов (появляется после клика)
+    # [class*='ticker']    — тикер токена (USDT / USDC)
+
+    def token_selector(self):
+        """Текущий выбранный выходной токен (клик открывает дропдаун в multi-token пуле)."""
+        return self._body.locator("[class*='current']")
+
+    def token_dropdown(self):
+        """Дропдаун со списком доступных токенов для вывода."""
+        return self._body.locator("[class*='tokensList']")
+
+    def current_token_ticker(self) -> str:
+        """Тикер текущего выбранного токена, например 'USDT'."""
+        return self._body.locator("[class*='current'] [class*='ticker']").inner_text()
+
+    def token_option(self, ticker: str):
+        """Конкретная опция в дропдауне по тикеру (например 'USDC')."""
+        return self.token_dropdown().locator("[class*='ticker']").filter(has_text=ticker)
+
+    def token_selector_arrow(self):
+        """Стрелка дропдауна внутри token selector.
+
+        Присутствует только в multi-token пуле.
+        В single-token пуле отсутствует — элемент имеет класс _noPointer_ и не кликабелен.
+        """
+        return self.token_selector().locator("[class*='arrowWrapper']")
+
     def close(self):
         """Закрывает модалку кликом по иконке крестика.
 

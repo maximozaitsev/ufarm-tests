@@ -302,6 +302,173 @@ def test_withdraw_modal_max_button(page_with_wallet_on_pool):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Token selector / dropdown
+# ══════════════════════════════════════════════════════════════════════════════
+
+@allure.epic("Market")
+@allure.feature("UI")
+@allure.story("Withdrawal")
+@allure.title("Withdraw modal: single-token pool has no token selector dropdown")
+@allure.severity(allure.severity_level.CRITICAL)
+def test_withdraw_modal_single_token_no_dropdown(page_with_wallet_on_single_token_pool):
+    """В single-token пуле (Pool A) в модалке вывода нет дропдауна выбора токена.
+
+    Отображается только один токен без стрелки/дропдауна.
+    Используется: Pool A (POOL_SINGLE_TOKEN_ID) + TEST_WALLET_ADDRESS.
+    """
+    mp = MarketplacePage(page_with_wallet_on_single_token_pool)
+    modal = WithdrawModal(page_with_wallet_on_single_token_pool)
+
+    with allure.step("Ждём загрузки страницы пула и кнопки Withdraw"):
+        mp.wait_for_pool_page()
+        mp.wait_for_withdraw_button()
+
+    with allure.step("Открываем модалку вывода"):
+        mp.withdraw_button().click()
+        modal.wait_for()
+        modal.request_withdrawal_button().wait_for(state="visible", timeout=5_000)
+
+    with allure.step("Token selector не интерактивен — нет стрелки дропдауна"):
+        # В single-token пуле _current_ существует, но без _arrowWrapper_ внутри.
+        # _noPointer_ CSS-класс делает его некликабельным.
+        assert modal.token_selector_arrow().count() == 0, (
+            "Arrow wrapper should not be present in single-token pool token selector"
+        )
+
+    with allure.step("Скриншот модалки single-token пула"):
+        allure.attach(
+            page_with_wallet_on_single_token_pool.screenshot(),
+            name="Withdraw modal single-token pool",
+            attachment_type=allure.attachment_type.PNG,
+        )
+
+
+
+
+@allure.epic("Market")
+@allure.feature("UI")
+@allure.story("Withdrawal")
+@allure.title("Withdraw modal: multi-token pool shows token selector dropdown")
+@allure.severity(allure.severity_level.CRITICAL)
+def test_withdraw_modal_multi_token_has_dropdown(
+    page_with_wallet_on_pool, pool_info_multi_token
+):
+    """В multi-token пуле (Pool B) в модалке вывода отображается дропдаун выбора токена.
+
+    Доступные токены берутся из pool.availableValueTokens.
+    Клик на selector открывает список всех доступных токенов.
+    """
+    mp = MarketplacePage(page_with_wallet_on_pool)
+    modal = WithdrawModal(page_with_wallet_on_pool)
+
+    available_tokens = pool_info_multi_token.availableValueTokens or []
+    assert len(available_tokens) >= 2, (
+        f"Pool B should have at least 2 available tokens, got: {available_tokens}"
+    )
+
+    with allure.step("Открываем модалку вывода"):
+        mp.wait_for_pool_page()
+        mp.wait_for_withdraw_button()
+        mp.withdraw_button().click()
+        modal.wait_for()
+
+    with allure.step("Тикер выбранного токена отображается в селекторе"):
+        current_ticker = modal.current_token_ticker()
+        available_tokens_upper = [t.upper() for t in available_tokens]
+        allure.attach(
+            f"Current ticker: {current_ticker}\nAvailable: {available_tokens}",
+            name="Token info",
+            attachment_type=allure.attachment_type.TEXT,
+        )
+        assert current_ticker.upper() in available_tokens_upper, (
+            f"Current token '{current_ticker}' not in available tokens: {available_tokens}"
+        )
+
+    with allure.step("Кликаем на token selector — открывается дропдаун"):
+        modal.token_selector().click()
+        modal.token_dropdown().wait_for(state="visible", timeout=3_000)
+
+    with allure.step(f"Дропдаун содержит все доступные токены: {available_tokens}"):
+        for ticker in available_tokens:
+            # UI отображает тикеры в верхнем регистре (USDT), API — в нижнем (usdt)
+            assert modal.token_option(ticker.upper()).is_visible(), (
+                f"Token option '{ticker.upper()}' not visible in dropdown"
+            )
+
+    with allure.step("Скриншот дропдауна токенов"):
+        allure.attach(
+            page_with_wallet_on_pool.screenshot(),
+            name="Token dropdown opened",
+            attachment_type=allure.attachment_type.PNG,
+        )
+
+
+@allure.epic("Market")
+@allure.feature("UI")
+@allure.story("Withdrawal")
+@allure.title("Withdraw modal: switching output token updates ticker and recalculates amount")
+@allure.severity(allure.severity_level.CRITICAL)
+def test_withdraw_modal_token_switch_updates_output(
+    page_with_wallet_on_pool, pool_info_multi_token
+):
+    """Переключение токена вывода обновляет тикер в селекторе и пересчитывает withdrawal input.
+
+    Pool B имеет несколько доступных токенов (availableValueTokens).
+    После выбора альтернативного токена current_token_ticker() меняется,
+    а withdrawal input (buyCoin) пересчитывается.
+    """
+    mp = MarketplacePage(page_with_wallet_on_pool)
+    modal = WithdrawModal(page_with_wallet_on_pool)
+
+    available_tokens = pool_info_multi_token.availableValueTokens or []
+    assert len(available_tokens) >= 2, (
+        f"Pool B should have at least 2 available tokens for switch test: {available_tokens}"
+    )
+
+    with allure.step("Открываем модалку вывода"):
+        mp.wait_for_pool_page()
+        mp.wait_for_withdraw_button()
+        mp.withdraw_button().click()
+        modal.wait_for()
+
+    with allure.step("Запоминаем текущий токен и выбираем альтернативный"):
+        initial_ticker = modal.current_token_ticker()
+        # API возвращает тикеры в нижнем регистре, UI показывает в верхнем
+        other_ticker = next(
+            t.upper() for t in available_tokens if t.upper() != initial_ticker
+        )
+
+    with allure.step("Вводим '1' в pool token input чтобы было что пересчитывать"):
+        modal.pool_token_input().fill("1")
+        page_with_wallet_on_pool.wait_for_timeout(500)
+
+    with allure.step(f"Открываем дропдаун и выбираем {other_ticker} (было {initial_ticker})"):
+        modal.token_selector().click()
+        modal.token_dropdown().wait_for(state="visible", timeout=3_000)
+        modal.token_option(other_ticker).click()
+        page_with_wallet_on_pool.wait_for_timeout(500)
+
+    with allure.step(f"Тикер в селекторе обновился на {other_ticker}"):
+        new_ticker = modal.current_token_ticker()
+        assert new_ticker.upper() == other_ticker.upper(), (
+            f"Expected ticker '{other_ticker}' after switch, got '{new_ticker}'"
+        )
+
+    with allure.step("Withdrawal token input не пустой после смены токена"):
+        buy_after = modal.withdraw_token_input().input_value()
+        assert buy_after not in ("", "0"), (
+            f"Buy coin input should not be empty/zero after token switch: {buy_after!r}"
+        )
+
+    with allure.step(f"Скриншот после переключения токена на {other_ticker}"):
+        allure.attach(
+            page_with_wallet_on_pool.screenshot(),
+            name=f"Token switched to {other_ticker}",
+            attachment_type=allure.attachment_type.PNG,
+        )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Негативные сценарии
 # ══════════════════════════════════════════════════════════════════════════════
 

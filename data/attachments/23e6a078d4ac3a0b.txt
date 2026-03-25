@@ -1,2 +1,0 @@
-Current: USDT
-Available: ['USDT', 'USDC']

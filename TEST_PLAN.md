@@ -297,6 +297,70 @@
 
 ---
 
+### 4.3.1 Модалка Fund wallet — дополнительные тесты (TODO)
+
+> Текущие тесты (4.3) покрывают базовую структуру модалки. Ниже — планируемое расширение.
+
+#### Кнопки и навигация
+
+- `test_fund_wallet_modal_buy_crypto_opens_external` · smoke · NORMAL
+  - **Что:** Клик "buy crypto" открывает внешний сервис (новая вкладка или редирект).
+  - **Как:** Перехватывает открытие новой страницы (`page.expect_popup()`) → проверяет что URL не пустой и не `/marketplace`.
+
+- `test_fund_wallet_modal_receive_funds_shows_address` · smoke · CRITICAL
+  - **Что:** Клик "receive funds" показывает QR-код и/или адрес кошелька.
+  - **Как:** `modal.receive_funds_button().click()` → ждёт появления адреса кошелька или QR-элемента.
+
+- `test_fund_wallet_modal_closes_on_x` · smoke · NORMAL
+  - **Что:** Крестик закрывает модалку Fund wallet.
+  - **Как:** `modal.close()` → `modal.wait_for(state="hidden")`.
+
+#### Переход к другим токенам / сетям
+
+- `test_fund_wallet_modal_different_pool_different_token` · regression · NORMAL
+  - **Что:** Для пула с другим токеном (USDC) в тексте подсказки указан этот токен.
+  - **Фикстуры:** Нужен пул с USDC и кошелёк с нулевым балансом USDC.
+
+---
+
+### 4.3.2 Коннект кошелька через Social / Email (TODO)
+
+> Ufarm поддерживает подключение через Reown AppKit (социальные сети и email). Тесты требуют отдельного подхода — реальный OAuth сложно автоматизировать headless, поэтому основная стратегия — UI-уровень до редиректа / мок OAuth.
+
+#### Открытие модалки Connect
+
+- `test_connect_wallet_button_opens_modal` · smoke · NORMAL
+  - **Что:** Клик "Connect Wallet" в хедере открывает модалку коннекта (Reown AppKit).
+  - **Как:** `page.locator("button", has_text="Connect Wallet").click()` → ждёт появления модалки с вариантами подключения.
+
+- `test_connect_modal_has_social_options` · smoke · NORMAL
+  - **Что:** В модалке видны опции: Google, Apple, Facebook / Email.
+  - **Как:** Проверяет наличие кнопок с текстом "Google", "Apple" (или иконками соцсетей).
+
+- `test_connect_modal_has_email_option` · smoke · NORMAL
+  - **Что:** В модалке есть поле ввода email или кнопка "Email".
+  - **Как:** Проверяет наличие input[type='email'] или кнопки с текстом "Email".
+
+#### Email-флоу (до внешнего сервиса)
+
+- `test_connect_email_input_accepts_valid_email` · regression · NORMAL
+  - **Что:** После ввода корректного email появляется кнопка продолжения (без реального входа).
+  - **Как:** Заполняет email-поле валидным адресом → проверяет что кнопка "Continue" / "Send code" активна.
+
+- `test_connect_email_invalid_format_shows_error` · regression · NORMAL
+  - **Что:** Ввод невалидного email (без @) показывает ошибку валидации.
+  - **Как:** Заполняет "notanemail" → кнопка Continue недоступна или появляется текст ошибки.
+
+#### Закрытие модалки
+
+- `test_connect_modal_closes_on_escape` · smoke · NORMAL
+  - **Что:** Нажатие Escape (или клик вне модалки) закрывает модалку коннекта.
+  - **Как:** `page.keyboard.press("Escape")` → модалка исчезает.
+
+> **Ограничения:** Полный OAuth-флоу (Google/Apple login) не автоматизируется headless без мока. Для coverage реального входа — использовать заранее созданный тестовый аккаунт с email + OTP (если AppKit поддерживает email code).
+
+---
+
 ### 4.4 Модалка вывода — `tests/ui/market/test_withdraw_modal.py`
 
 > Фикстура: `page_with_wallet_on_pool` (TEST_POOL_ID + TEST_WALLET_ADDRESS, кошелёк с ненулевым балансом).

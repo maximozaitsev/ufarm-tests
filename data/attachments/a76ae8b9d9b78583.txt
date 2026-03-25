@@ -1,0 +1,2 @@
+Current ticker: USDT
+Available: ['usdt', 'usdc']

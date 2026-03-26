@@ -245,6 +245,14 @@
 - **Как:** `random.uniform(1, float(min_deposit) - 0.01)` → `fill(amount)` → `submit_button().is_disabled()` → `get_by_text("Minimum: {display_min}")`.
 - **Фикстуры:** `pool_info_min_deposit`.
 
+**Gasless toggle — состояние при отсутствии ETH:**
+
+#### `test_deposit_modal_gasless_locked_when_no_eth` · smoke · CRITICAL
+- **Что:** Когда у кошелька есть USDT но нет ETH для газа, gasless toggle залочен в состоянии "включён" (checked + disabled), submit кнопка активна.
+- **Как:** `page_with_no_eth_wallet_on_single_token_pool` → `open_deposit_modal()` → вводит случайную сумму → `gasless_toggle().is_checked()` + `gasless_toggle().is_disabled()` + `not submit_button().is_disabled()`.
+- **Фикстуры:** `page_with_no_eth_wallet_on_single_token_pool` (Pool A + WALLET_NO_ETH), `pool_info_single_token`.
+- **Зачем:** Пользователь без ETH не может переключиться на не-gasless режим — приложение должно это предотвращать. Баг здесь потенциально заблокирует депозит.
+
 **Terms (PROOF OF AGREEMENT):**
 
 #### `test_deposit_modal_terms_appear_for_new_user` · smoke · CRITICAL
@@ -442,6 +450,50 @@
 #### `test_withdraw_triggers_signing` · smoke · CRITICAL (TBD)
 - **Что:** Клик Request Withdrawal после MAX запускает signing flow.
 - **Статус:** Ожидаем наблюдения в `HEADED=1` — assertion не добавлен.
+
+---
+
+### 4.5 Compliance: KYT — `tests/ui/market/test_kyc_kyt.py`
+
+> Мокирование `POST /user/verification` через Playwright LIFO route stacking.
+> `_mock_auth_connect()` (фикстура) регистрирует базовый мок `tier=10`.
+> `_override_verification_tier(page, tier=N)` регистрирует переопределяющий handler поверх — Playwright вызывает handlers в порядке LIFO, переопределение побеждает.
+>
+> Пулы:
+> - Pool A (POOL_SINGLE_TOKEN_ID) — `minClientTier=10` (Strict KYT)
+> - Pool B (TEST_POOL_ID) — `minClientTier=0` (No KYT)
+
+#### `test_kyt_passed_shows_deposit_form` · smoke · CRITICAL
+- **Что:** Если `tier=10 >= minClientTier=10` (дефолтный мок), кнопка Deposit открывает форму DEPOSIT, а не блокировку.
+- **Как:** `page_with_wallet_on_single_token_pool` (без переопределения) → `deposit_button().click()` → `modal.wait_for()` → heading "DEPOSIT" виден.
+- **Зачем:** Базовый happy-path KYT: кошелёк с нужным tier получает доступ к депозиту.
+
+#### `test_kyt_blocked_shows_modal` · smoke · CRITICAL
+- **Что:** Если `tier ∈ {0, 5} < minClientTier=10`, кнопка Deposit открывает модалку "Wallet verification issue" с кнопкой Close. Форма DEPOSIT не открывается.
+- **Как:** `_override_verification_tier(page, tier=random.choice([0, 5]))` → `deposit_button().click()` → `modal.wait_opened()` → `heading().is_visible()` + `close_button().is_visible()` + `not DEPOSIT heading visible`.
+- **Зачем:** Главный KYT-блок: кошелёк без нужного tier не должен получить доступ к депозиту.
+
+#### `test_kyt_blocked_close_button_dismisses_modal` · smoke · NORMAL
+- **Что:** Кнопка Close закрывает модалку блокировки, страница пула остаётся.
+- **Как:** `_override_verification_tier(page, 5)` → Deposit → `modal.wait_opened()` → `close_button().click()` → `heading().wait_for(state="hidden")` → `mp.wait_for_pool_page()`.
+- **Зачем:** UX: пользователь должен иметь возможность закрыть модалку и вернуться к пулу.
+
+#### `test_kyt_blocked_retry_same_result` · smoke · NORMAL
+- **Что:** После закрытия модалки блокировки повторный клик Deposit снова показывает ту же блокировку.
+- **Как:** `_override_verification_tier(page, 5)` → первый Deposit → Close → второй Deposit → `modal.wait_opened()` → heading виден.
+- **Зачем:** Блокировка не должна сниматься после закрытия модалки — tier кошелька не изменился.
+
+#### `test_no_kyt_pool_allows_low_tier` · smoke · CRITICAL
+- **Что:** Pool B (minClientTier=0): verification возвращает tier=0 → открывается DEPOSIT форма (пул без KYT не блокирует никого).
+- **Как:** `page_with_wallet_on_pool` + `_override_verification_tier(page, 0)` → `deposit_button().click()` → `modal.wait_for()` → heading "DEPOSIT" виден.
+- **Зачем:** Инвариант No KYT пула: любой кошелёк (даже с минимальным tier) должен получить доступ к депозиту.
+
+### 4.5.1 Compliance: KYC (TODO)
+
+> KYC-тесты (minClientTier=20) отложены — требуют wallet signing.
+> Когда пул требует tier=20 и verification возвращает tier<20, приложение показывает
+> Terms (PROOF OF AGREEMENT) перед модалкой "Identity verification required".
+> Terms нельзя принять без подписи кошелька. inject_wallet не поддерживает signing.
 
 ---
 

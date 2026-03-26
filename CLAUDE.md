@@ -52,9 +52,11 @@ PWDEBUG=1 pytest tests/ui/market/test_marketplace_no_wallet.py::test_pool_card_n
 conftest.py               # фикстуры: api_client, leaderboard_api_client, browser, page,
                           #   page_with_wallet, page_with_wallet_on_pool,
                           #   page_with_wallet_on_single_token_pool,
+                          #   page_with_no_eth_wallet_on_single_token_pool,
                           #   page_with_zero_wallet_on_min_deposit_pool (scope=module),
                           #   page_with_zero_wallet_on_pool,
-                          #   pool_single_token_id, pool_min_deposit_id, wallet_zero_balance
+                          #   pool_single_token_id, pool_min_deposit_id,
+                          #   wallet_zero_balance, wallet_no_eth
                           # _mock_auth_connect() — мок GET /auth/connect/{addr} И
                           #   POST /user/verification до page.goto() (предотвращает Terms)
 pytest.ini                # регистрация marks: api, ui, trx, smoke, regression, extended
@@ -80,6 +82,8 @@ core/
                           #   token_selector() → [class*='current'], token_selector_arrow(),
                           #   current_token_ticker() → [class*='ticker'], token_option(ticker)
       fund_wallet_modal.py # FundWalletModal: title, hint_text, buy crypto / receive funds
+      kyt_modal.py        # KytBlockModal: heading ("Wallet verification issue"), close_button,
+                          #   wait_opened(timeout)
 tests/
   api/                    # pytest.mark.api
     test_healthcheck.py
@@ -108,6 +112,9 @@ tests/
       test_withdraw_modal.py          # smoke: Pool B + TEST_WALLET_ADDRESS; Pool A (withdraw)
                           #   токен-дропдаун; single-token без дропдауна
       test_fund_wallet_modal.py       # smoke: Pool C + WALLET_ZERO_BALANCE
+      test_kyc_kyt.py                 # smoke: Compliance KYT — мок POST /user/verification;
+                          #   Pool A (minClientTier=10): passed, blocked, close, retry
+                          #   Pool B (minClientTier=0): no-KYT любой tier → DEPOSIT
     fund/                 # тесты фонда (будущее)
 scripts/
   dump_markup.py          # разведка: дампит HTML и PNG страниц (результат в scripts/markup/, gitignored)
@@ -117,11 +124,12 @@ scripts/
 
 **`.env` (тестовые данные):**
 ```
-TEST_POOL_ID=<uuid>              # Pool B — multi-token пул, кошелёк с балансом
+TEST_POOL_ID=<uuid>              # Pool B — multi-token пул, minClientTier=0 (No KYT)
 TEST_WALLET_ADDRESS=<0x...>      # WALLET_WITH_BALANCE — кошелёк с ненулевым балансом в Pool B
-POOL_SINGLE_TOKEN_ID=<uuid>      # Pool A — single-token пул
+POOL_SINGLE_TOKEN_ID=<uuid>      # Pool A — single-token пул, minClientTier=10 (Strict KYT)
 POOL_MIN_DEPOSIT_ID=<uuid>       # Pool C — пул с заметным min deposit
 WALLET_ZERO_BALANCE=<0x...>      # кошелёк с балансом < min deposit Pool C
+WALLET_NO_ETH=<0x...>            # кошелёк с небольшим USDT, но без ETH для газа
 ```
 `base_url`, `fund_url`, `api_url` имеют дефолты на DEMO — в CI не нужны.
 
@@ -185,6 +193,7 @@ Allure-отчёт → GitHub Pages (ветка `gh-pages`).
 - `page_with_wallet_on_single_token_pool` — открывает `/marketplace/pool/{POOL_SINGLE_TOKEN_ID}` (Pool A). TEST_WALLET_ADDRESS имеет депозит в Pool A → видна кнопка Withdraw.
 - `page_with_zero_wallet_on_min_deposit_pool` — Pool C + WALLET_ZERO_BALANCE. **scope=module**. Для тестов Fund wallet modal.
 - `page_with_zero_wallet_on_pool` — Pool B + WALLET_ZERO_BALANCE. Для проверки что Withdraw кнопка не появляется без депозитов.
+- `page_with_no_eth_wallet_on_single_token_pool` — Pool A + WALLET_NO_ETH (есть USDT, нет ETH). Для теста gasless toggle locked when no ETH.
 - `page_with_whale_wallet_on_min_deposit_pool` (market conftest, scope=module) — Pool C + Binance hot wallet (`0xF977814e...`, ~173M USDT). Для теста `deposit_below_min_deposit`. Проверяет баланс при старте, скипает если < 5000 USDT.
 
 **Почему scope=module для Pool C:** Pool C делает долгие polling-запросы (networkidle недостижим). Первый клик Deposit занимает ~15 сек (on-chain RPC). Module-scope позволяет загрузить страницу и прогреть кеш балансов один раз на все 7 тестов.
@@ -192,6 +201,15 @@ Allure-отчёт → GitHub Pages (ветка `gh-pages`).
 **Важно:** inject_wallet выполняется ПОСЛЕ `page.goto()` на нужную страницу. `page.goto()` вызывает полный reload — состояние wagmi store сбрасывается. Поэтому нельзя инжектировать на `/marketplace` и потом делать `page.goto(pool_url)` — кошелёк потеряется.
 
 **Terms (PROOF OF AGREEMENT):** появляется когда `auth/connect` возвращает `createdAt: null` (новый пользователь) или `user/verification` возвращает ошибку. `_mock_auth_connect()` мокает оба эндпоинта до `page.goto()` — Terms гарантированно не появляются в обычных тестах. Для теста что Terms появляется используется `page_with_new_user_on_pool` (локальная фикстура в `test_deposit_modal.py`) с обратными моками.
+
+**KYT-мокирование (тесты Compliance):** Используется Playwright LIFO route stacking. `_mock_auth_connect()` регистрирует базовый мок `POST /user/verification → tier=10`. Тест вызывает `_override_verification_tier(page, tier=N)` после `page.goto()` — это регистрирует ещё один handler для того же паттерна. Playwright вызывает handlers в порядке LIFO: переопределённый handler вызывается первым и вызывает `route.fulfill()`, останавливая цепочку. Базовый мок фикстуры не вызывается. Это позволяет задать любой tier без изменения фикстур.
+
+**Настройки Compliance пулов:**
+- Pool A (POOL_SINGLE_TOKEN_ID) — `minClientTier=10` (Strict KYT)
+- Pool B (TEST_POOL_ID) — `minClientTier=0` (No KYT — любой кошелёк)
+- Pool C (POOL_MIN_DEPOSIT_ID) — `minClientTier=0` (No KYT)
+
+**KYC-тесты (minClientTier=20):** отложены — требуют wallet signing. Когда пул требует tier=20, при tier<20 приложение показывает Terms (PROOF OF AGREEMENT), которые нельзя принять без подписи кошелька. inject_wallet не поддерживает signing.
 
 **Что не работает** (задокументировано в `wallet_injection.py`):
 - `window.ethereum` mock + `add_init_script` — AppKit не читает провайдер автоматически
@@ -205,5 +223,6 @@ Allure-отчёт → GitHub Pages (ветка `gh-pages`).
 - [x] Шаг 2: UI-тесты без кошелька (marketplace load, header, pool cards, navigation, pool page, portfolio tab)
 - [x] Шаг 3: UI-тесты с мок-кошельком — базовые (адрес в хедере, my-portfolio, deposit/withdraw кнопки)
 - [x] Шаг 3.5: UI-тесты модалок депозита (Pool A + Pool B), вывода (Pool B), Fund wallet (Pool C)
+- [x] Шаг 3.6: UI-тесты Compliance KYT (Pool A minClientTier=10, Pool B minClientTier=0) — мок верификации
 - [ ] Шаг 4: UI-тесты on-chain транзакций (signing flow, верификация через API)
 - [ ] Шаг 5: TRX-тесты (on-chain транзакции)

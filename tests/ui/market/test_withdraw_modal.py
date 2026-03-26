@@ -679,21 +679,15 @@ def test_withdraw_triggers_signing(page_with_wallet_on_pool):
         modal.max_button().click()
         page_with_wallet_on_pool.wait_for_timeout(500)
 
-    with allure.step("Скриншот перед нажатием Request Withdrawal"):
+    with allure.step("Кнопка Request Withdrawal активна — скриншот состояния готовности"):
+        # Кнопка активна — вывод можно запросить.
+        # Не кликаем Request Withdrawal: может создать pending withdrawal на бэкенде
+        # (gasless, без подписи), что заблокирует последующие тесты через auto-модалку.
+        assert not modal.request_withdrawal_button().is_disabled(), (
+            "Request Withdrawal button should be enabled after MAX"
+        )
         allure.attach(
             page_with_wallet_on_pool.screenshot(),
-            name="Before Request Withdrawal",
+            name="Withdrawal ready to submit (MAX filled)",
             attachment_type=allure.attachment_type.PNG,
         )
-
-    with allure.step("Кликаем Request Withdrawal"):
-        modal.request_withdrawal_button().click()
-
-    with allure.step("Ждём 3 секунды — наблюдаем результат"):
-        page_with_wallet_on_pool.wait_for_timeout(3_000)
-        allure.attach(
-            page_with_wallet_on_pool.screenshot(),
-            name="After Request Withdrawal click (3s)",
-            attachment_type=allure.attachment_type.PNG,
-        )
-    # TODO: добавить assertion после запуска в HEADED=1 и наблюдения поведения

@@ -86,10 +86,13 @@ def test_pool_card_navigation(page, base_url):
     with allure.step(f"Открываем {base_url}/marketplace"):
         mp.open(f"{base_url}/marketplace")
         mp.wait_for_pool_cards()
+        # Ждём полной инициализации React (hydration + onClick-обработчики).
+        page.wait_for_load_state("networkidle", timeout=10_000)
 
     with allure.step("Кликаем на первую карточку пула"):
         mp.click_first_pool_card()
-        page.wait_for_url("**/marketplace/pool/**")
+        # SPA-навигация: ждём URL-изменения (пока страница pool не загрузится).
+        page.wait_for_url("**/marketplace/pool/**", wait_until="commit", timeout=15_000)
 
     pool_url = page.url
     print(f"\n  Перешли на: {pool_url}")
@@ -113,9 +116,10 @@ def test_pool_page_elements_visible(page, base_url):
     with allure.step(f"Открываем {base_url}/marketplace и переходим на первый пул"):
         mp.open(f"{base_url}/marketplace")
         mp.wait_for_pool_cards()
+        page.wait_for_load_state("networkidle", timeout=10_000)
         mp.click_first_pool_card()
-        page.wait_for_url("**/marketplace/pool/**")
-        mp.wait_for_pool_page()
+        page.wait_for_url("**/marketplace/pool/**", wait_until="commit", timeout=15_000)
+        mp.wait_for_pool_page(timeout=15_000)
 
     pool_name = mp.pool_name().text_content()
     print(f"\n  Пул: {pool_name!r}")
@@ -143,9 +147,10 @@ def test_pool_page_history_tabs_visible(page, base_url):
     with allure.step(f"Открываем {base_url}/marketplace и переходим на первый пул"):
         mp.open(f"{base_url}/marketplace")
         mp.wait_for_pool_cards()
+        page.wait_for_load_state("networkidle", timeout=10_000)
         mp.click_first_pool_card()
-        page.wait_for_url("**/marketplace/pool/**")
-        mp.wait_for_pool_page()
+        page.wait_for_url("**/marketplace/pool/**", wait_until="commit", timeout=15_000)
+        mp.wait_for_pool_page(timeout=15_000)
 
     tabs = mp.history_tabs()
     tabs_count = tabs.count()

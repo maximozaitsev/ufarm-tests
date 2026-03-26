@@ -210,9 +210,10 @@ def browser():
 
 @pytest.fixture
 def page(browser):
-    page = browser.new_page()
+    context = browser.new_context()
+    page = context.new_page()
     yield page
-    page.close()
+    context.close()
 
 
 @pytest.fixture
@@ -224,7 +225,8 @@ def page_with_wallet_on_pool(browser, base_url, test_pool_id, test_wallet_addres
     """
     from core.ui.wallet_injection import inject_wallet
 
-    page = browser.new_page()
+    context = browser.new_context()
+    page = context.new_page()
     _mock_auth_connect(page)
     page.goto(f"{base_url}/marketplace/pool/{test_pool_id}", wait_until="networkidle")
     inject_wallet(page, test_wallet_address)
@@ -232,7 +234,7 @@ def page_with_wallet_on_pool(browser, base_url, test_pool_id, test_wallet_addres
     # ждём их завершения, чтобы Withdrawal кнопка появилась.
     page.wait_for_load_state("networkidle", timeout=15_000)
     yield page
-    page.close()
+    context.close()
 
 
 @pytest.fixture
@@ -243,13 +245,14 @@ def page_with_wallet_on_single_token_pool(browser, base_url, pool_single_token_i
     """
     from core.ui.wallet_injection import inject_wallet
 
-    page = browser.new_page()
+    context = browser.new_context()
+    page = context.new_page()
     _mock_auth_connect(page)
     page.goto(f"{base_url}/marketplace/pool/{pool_single_token_id}", wait_until="networkidle")
     inject_wallet(page, test_wallet_address)
     page.wait_for_load_state("networkidle", timeout=15_000)
     yield page
-    page.close()
+    context.close()
 
 
 @pytest.fixture
@@ -261,13 +264,14 @@ def page_with_no_eth_wallet_on_single_token_pool(browser, base_url, pool_single_
     """
     from core.ui.wallet_injection import inject_wallet
 
-    page = browser.new_page()
+    context = browser.new_context()
+    page = context.new_page()
     _mock_auth_connect(page)
     page.goto(f"{base_url}/marketplace/pool/{pool_single_token_id}", wait_until="networkidle")
     inject_wallet(page, wallet_no_eth)
     page.wait_for_load_state("networkidle", timeout=15_000)
     yield page
-    page.close()
+    context.close()
 
 
 @pytest.fixture(scope="module")
@@ -281,18 +285,19 @@ def page_with_zero_wallet_on_min_deposit_pool(browser, base_url, pool_min_deposi
     """
     from core.ui.wallet_injection import inject_wallet
 
-    page = browser.new_page()
+    context = browser.new_context()
+    page = context.new_page()
     _mock_auth_connect(page)
     # "networkidle" недостижим для Pool C — пул делает долгие polling-запросы.
     page.goto(f"{base_url}/marketplace/pool/{pool_min_deposit_id}", wait_until="domcontentloaded", timeout=60_000)
-    page.get_by_role("heading", level=1).wait_for(timeout=30_000)
+    page.get_by_role("heading", level=1).wait_for(timeout=10_000)
     inject_wallet(page, wallet_zero_balance)
     try:
         page.wait_for_load_state("networkidle", timeout=10_000)
     except Exception:
         pass
     yield page
-    page.close()
+    context.close()
 
 
 @pytest.fixture
@@ -304,13 +309,14 @@ def page_with_zero_wallet_on_pool(browser, base_url, test_pool_id, wallet_zero_b
     """
     from core.ui.wallet_injection import inject_wallet
 
-    page = browser.new_page()
+    context = browser.new_context()
+    page = context.new_page()
     _mock_auth_connect(page)
     page.goto(f"{base_url}/marketplace/pool/{test_pool_id}", wait_until="networkidle")
     inject_wallet(page, wallet_zero_balance)
     page.wait_for_load_state("networkidle", timeout=15_000)
     yield page
-    page.close()
+    context.close()
 
 
 @pytest.fixture
@@ -329,9 +335,10 @@ def page_with_wallet(browser, base_url, test_wallet_address):
     """
     from core.ui.wallet_injection import inject_wallet
 
-    page = browser.new_page()
+    context = browser.new_context()
+    page = context.new_page()
     _mock_auth_connect(page)
     page.goto(f"{base_url}/marketplace", wait_until="networkidle")
     inject_wallet(page, test_wallet_address)
     yield page
-    page.close()
+    context.close()

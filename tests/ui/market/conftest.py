@@ -86,18 +86,19 @@ def page_with_whale_wallet_on_min_deposit_pool(browser, base_url, pool_min_depos
             f"Whale wallet {_WHALE_WALLET} balance dropped below 5000 USDT: {whale_balance}"
         )
 
-    page = browser.new_page()
+    context = browser.new_context()
+    page = context.new_page()
     mock_auth_connect(page)
     page.goto(
         f"{base_url}/marketplace/pool/{pool_min_deposit_id}",
         wait_until="domcontentloaded",
         timeout=60_000,
     )
-    page.get_by_role("heading", level=1).wait_for(timeout=30_000)
+    page.get_by_role("heading", level=1).wait_for(timeout=10_000)
     inject_wallet(page, _WHALE_WALLET)
     try:
         page.wait_for_load_state("networkidle", timeout=10_000)
     except Exception:
         pass
     yield page
-    page.close()
+    context.close()

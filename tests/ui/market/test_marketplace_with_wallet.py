@@ -224,8 +224,8 @@ def test_spa_navigation_preserves_wallet(page_with_wallet_on_pool, test_wallet_a
 
     with allure.step("Кликаем таб All products (SPA-переход на /marketplace)"):
         mp.tab_all_products().click()
-        page_with_wallet_on_pool.wait_for_url("**/marketplace**", timeout=10_000)
-        mp.wait_for_pool_cards()
+        # SPA-навигация: wait_for_url("load") зависает — ждём пул-карточки как индикатор загрузки
+        mp.wait_for_pool_cards(timeout=15_000)
 
     with allure.step("Кошелёк всё ещё подключён на странице маркета"):
         header_text = mp.nav_header().inner_text().lower()
@@ -233,7 +233,7 @@ def test_spa_navigation_preserves_wallet(page_with_wallet_on_pool, test_wallet_a
 
     with allure.step("Переходим на страницу первого пула"):
         mp.click_first_pool_card()
-        mp.wait_for_pool_page()
+        mp.wait_for_pool_page(timeout=15_000)
 
     with allure.step("Кошелёк всё ещё подключён на странице пула"):
         header_text = mp.nav_header().inner_text().lower()

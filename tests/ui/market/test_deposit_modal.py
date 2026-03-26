@@ -45,13 +45,14 @@ def page_with_new_user_on_pool(browser, base_url, test_pool_id, test_wallet_addr
         page.route("**/auth/connect/**", _auth)
         page.route("**/user/verification**", _verification)
 
-    page = browser.new_page()
+    context = browser.new_context()
+    page = context.new_page()
     _mock_new_user(page)
     page.goto(f"{base_url}/marketplace/pool/{test_pool_id}", wait_until="networkidle")
     inject_wallet(page, test_wallet_address)
     page.wait_for_load_state("networkidle", timeout=15_000)
     yield page
-    page.close()
+    context.close()
 
 
 pytestmark = [pytest.mark.ui, pytest.mark.smoke]
@@ -87,17 +88,18 @@ def open_deposit_modal(page, mp: MarketplacePage, modal: DepositModal):
     # сначала промежуточное состояние загрузки баланса.
     try:
         page.get_by_role("heading", name="DEPOSIT").wait_for(state="visible", timeout=15_000)
-        return
     except Exception:
-        pass
+        headings = page.locator(".mantine-Modal-content").first.locator(
+            "h1, h2, h3, h4"
+        ).all_inner_texts()
+        pytest.fail(
+            f"Expected DEPOSIT modal but got: {headings}. "
+            "Check that _mock_auth_connect() mocks are applied before page.goto()."
+        )
 
-    headings = page.locator(".mantine-Modal-content").first.locator(
-        "h1, h2, h3, h4"
-    ).all_inner_texts()
-    pytest.fail(
-        f"Expected DEPOSIT modal but got: {headings}. "
-        "Check that _mock_auth_connect() mocks are applied before page.goto()."
-    )
+    # Ждём появления инпута суммы — баланс кошелька загружается асинхронно по on-chain RPC.
+    # Heading DEPOSIT появляется раньше, чем форма полностью рендерится.
+    modal.amount_input().wait_for(state="visible", timeout=10_000)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -751,21 +753,14 @@ def test_deposit_triggers_signing(page_with_wallet_on_single_token_pool):
             "#poolDepositConfirm:not([disabled])"
         ).wait_for(state="visible", timeout=5_000)
 
-    with allure.step("Скриншот перед нажатием submit"):
+    with allure.step("Кнопка submit активна — скриншот состояния готовности"):
+        # Кнопка активна — депозит можно подтвердить.
+        # Не кликаем submit: gasless-депозит отправляется на бэкенд без подписи
+        # (мок verification возвращает signature=0x0) и может создать pending-запись.
+        # Pending-записи блокируют последующие тесты через auto-открытие модалки.
+        assert not modal.submit_button().is_disabled(), "Submit button should be enabled after MAX"
         allure.attach(
             page_with_wallet_on_single_token_pool.screenshot(),
-            name="Before submit click",
+            name="Deposit ready to submit (MAX filled)",
             attachment_type=allure.attachment_type.PNG,
         )
-
-    with allure.step("Кликаем кнопку submit"):
-        modal.submit_button().click()
-
-    with allure.step("Ждём 3 секунды — наблюдаем результат"):
-        page_with_wallet_on_single_token_pool.wait_for_timeout(3_000)
-        allure.attach(
-            page_with_wallet_on_single_token_pool.screenshot(),
-            name="After submit click (3s)",
-            attachment_type=allure.attachment_type.PNG,
-        )
-    # TODO: добавить assertion после запуска в HEADED=1 и наблюдения поведения

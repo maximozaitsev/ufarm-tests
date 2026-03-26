@@ -13,9 +13,10 @@ class MarketplacePage(BasePage):
     """
 
     # ── Pool cards ───────────────────────────────────────────────────────────
-    # Каждая карточка пула — это mantine-Paper-root содержащий h2.
-    # mantine-* — класс UI-библиотеки, не хэш CSS-модуля → стабилен.
-    POOL_CARD_CSS = ".mantine-Paper-root:has(h2)"
+    # Каждая карточка пула — это mantine-Paper-root содержащий h2 (название пула).
+    # Исключаем обёртку секции, у которой есть h1 ("All products") + вложенные h2 карточек.
+    # :not(:has(h1)) — отфильтровывает контейнер-обёртку, у индивидуальных карточек h1 нет.
+    POOL_CARD_CSS = ".mantine-Paper-root:has(h2):not(:has(h1))"
 
     # ── Navigation ────────────────────────────────────────────────────────────
 
@@ -26,8 +27,14 @@ class MarketplacePage(BasePage):
         self.page.wait_for_selector(self.POOL_CARD_CSS, timeout=timeout)
 
     def wait_for_pool_page(self, timeout: int = 15_000):
-        """Ждёт появления h1 с названием пула."""
+        """Ждёт появления h1 с названием пула и исчезновения любого модального оверлея.
+
+        После inject_wallet приложение кратковременно (<200мс) открывает Reown-модалку
+        при инициализации wallet connection state. Эта модалка блокирует клики.
+        Ждём пока оверлей исчезнет чтобы тесты не падали на race condition.
+        """
         self.page.get_by_role("heading", level=1).wait_for(timeout=timeout)
+        self.page.locator(".mantine-Modal-overlay").wait_for(state="hidden", timeout=10_000)
 
     # ── Header ───────────────────────────────────────────────────────────────
     # На странице пула присутствуют два <header>: навигационный и секционный.

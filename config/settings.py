@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     pool_single_token_id: str = ""
     pool_min_deposit_id: str = ""
     wallet_zero_balance: str = ""
+    wallet_no_eth: str = ""
 
     model_config = SettingsConfigDict(env_file=".env")
 

@@ -81,6 +81,12 @@ def pytest_addoption(parser):
         default=None,
         help="Override zero-balance wallet address (0x...)",
     )
+    parser.addoption(
+        "--wallet-no-eth",
+        action="store",
+        default=None,
+        help="Override no-ETH wallet address (has USDT but no ETH for gas)",
+    )
 
 
 @pytest.fixture(scope="session")
@@ -154,6 +160,15 @@ def wallet_zero_balance(request):
     value = override or settings.wallet_zero_balance
     if not value:
         raise ValueError("WALLET_ZERO_BALANCE is not set. Add it to .env or pass --wallet-zero-balance")
+    return value
+
+
+@pytest.fixture(scope="session")
+def wallet_no_eth(request):
+    override = request.config.getoption("--wallet-no-eth")
+    value = override or settings.wallet_no_eth
+    if not value:
+        raise ValueError("WALLET_NO_ETH is not set. Add it to .env or pass --wallet-no-eth")
     return value
 
 
@@ -232,6 +247,24 @@ def page_with_wallet_on_single_token_pool(browser, base_url, pool_single_token_i
     _mock_auth_connect(page)
     page.goto(f"{base_url}/marketplace/pool/{pool_single_token_id}", wait_until="networkidle")
     inject_wallet(page, test_wallet_address)
+    page.wait_for_load_state("networkidle", timeout=15_000)
+    yield page
+    page.close()
+
+
+@pytest.fixture
+def page_with_no_eth_wallet_on_single_token_pool(browser, base_url, pool_single_token_id, wallet_no_eth):
+    """Playwright Page на Pool A с кошельком у которого есть USDT, но нет ETH для газа.
+
+    Используется для теста что Gasless toggle задизейблен в состоянии "включён"
+    когда на кошельке нет ETH для покрытия gas fee.
+    """
+    from core.ui.wallet_injection import inject_wallet
+
+    page = browser.new_page()
+    _mock_auth_connect(page)
+    page.goto(f"{base_url}/marketplace/pool/{pool_single_token_id}", wait_until="networkidle")
+    inject_wallet(page, wallet_no_eth)
     page.wait_for_load_state("networkidle", timeout=15_000)
     yield page
     page.close()

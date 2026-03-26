@@ -627,6 +627,62 @@ def test_deposit_modal_below_min_deposit_shows_error(
             attachment_type=allure.attachment_type.PNG,
         )
 
+# ══════════════════════════════════════════════════════════════════════════════
+# Gasless toggle — кошелёк без ETH
+# ══════════════════════════════════════════════════════════════════════════════
+
+@allure.epic("Market")
+@allure.feature("UI")
+@allure.story("Deposit")
+@allure.title("Deposit modal: gasless toggle is disabled and locked ON when wallet has no ETH")
+@allure.severity(allure.severity_level.CRITICAL)
+def test_deposit_modal_gasless_locked_when_no_eth(
+    page_with_no_eth_wallet_on_single_token_pool,
+    wallet_no_eth,
+    pool_info_single_token,
+):
+    """Когда на кошельке нет ETH для газа, тоглер Gasless transaction:
+      - находится в состоянии ON (checked)
+      - задизейблен (disabled) — нельзя переключить на обычную транзакцию
+      - кнопка Request Deposit при этом активна (депозит без газа доступен).
+    """
+    from core.ui.on_chain import get_erc20_balance, USDT_ARB
+
+    page = page_with_no_eth_wallet_on_single_token_pool
+    mp = MarketplacePage(page)
+    modal = DepositModal(page)
+
+    with allure.step("Открываем модалку депозита"):
+        open_deposit_modal(page, mp, modal)
+
+    wallet_balance = get_erc20_balance(wallet_no_eth, USDT_ARB)
+    amount = str(_random_valid_deposit(pool_info_single_token, wallet_balance))
+
+    with allure.step(f"Вводим сумму {amount} USDT (min=0, баланс≈{wallet_balance:.4f})"):
+        modal.amount_input().fill(amount)
+        page.wait_for_timeout(500)
+
+    with allure.step("Тоглер Gasless transaction включён (checked)"):
+        assert modal.gasless_toggle().is_checked(), (
+            "Gasless toggle must be ON when wallet has no ETH"
+        )
+
+    with allure.step("Тоглер задизейблен — нельзя переключить"):
+        assert modal.gasless_toggle().is_disabled(), (
+            "Gasless toggle must be disabled when wallet has no ETH"
+        )
+
+    with allure.step("Кнопка Request Deposit активна — безгазовый депозит доступен"):
+        assert not modal.submit_button().is_disabled(), (
+            "Submit button must be enabled for a valid gasless deposit"
+        )
+
+    with allure.step("Скриншот: тоглер заблокирован в состоянии Gasless ON"):
+        allure.attach(
+            page.screenshot(),
+            name="Gasless toggle locked ON (no ETH)",
+            attachment_type=allure.attachment_type.PNG,
+        )
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Terms (PROOF OF AGREEMENT)

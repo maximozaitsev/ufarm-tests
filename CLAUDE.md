@@ -84,6 +84,11 @@ core/
       fund_wallet_modal.py # FundWalletModal: title, hint_text, buy crypto / receive funds
       kyt_modal.py        # KytBlockModal: heading ("Wallet verification issue"), close_button,
                           #   wait_opened(timeout)
+      wallet_menu_modal.py # WalletMenuModal: адрес, балансы (USDT/USDC/ETH), кнопки
+                          #   fund_wallet / send_nav / disconnect; sub-страницы:
+                          #   buy_crypto (токен, сумма, buy_form_wallet_address, Continue),
+                          #   receive_funds (QR canvas, copy_address),
+                          #   send (token dropdown, amount, textarea To, Max, Send)
 tests/
   api/                    # pytest.mark.api
     test_healthcheck.py
@@ -112,6 +117,12 @@ tests/
       test_withdraw_modal.py          # smoke: Pool B + TEST_WALLET_ADDRESS; Pool A (withdraw)
                           #   токен-дропдаун; single-token без дропдауна
       test_fund_wallet_modal.py       # smoke: Pool C + WALLET_ZERO_BALANCE
+      test_wallet_menu_modal.py       # smoke: модалка кошелька (открывается из хедера);
+                          #   main page: адрес, балансы, кнопки; fund wallet: buy crypto,
+                          #   receive funds; buy crypto: форма, Continue disabled до ввода,
+                          #   Unlimit iframe (USDT + network); receive funds: QR, copy→clipboard;
+                          #   send: форма (textarea To, Max), disabled/enabled кнопка
+                          #   page_with_wallet_clipboard — локальная фикстура с clipboard-read/write
       test_kyc_kyt.py                 # smoke: Compliance KYT — мок POST /user/verification;
                           #   Pool A (minClientTier=10): passed, blocked, close, retry
                           #   Pool B (minClientTier=0): no-KYT любой tier → DEPOSIT
@@ -209,6 +220,18 @@ Allure-отчёт → GitHub Pages (ветка `gh-pages`).
 - Pool B (TEST_POOL_ID) — `minClientTier=0` (No KYT — любой кошелёк)
 - Pool C (POOL_MIN_DEPOSIT_ID) — `minClientTier=0` (No KYT)
 
+**Wallet Menu Modal (модалка кошелька):**
+Открывается кликом на `#connectWallet` в хедере (в connected-состоянии). Корневой селектор — `[data-modal-content='true']` (стабильный data-атрибут, отличает от mantine deposit/withdraw модалок).
+
+Нюансы реализации:
+- **Disconnect** не работает с inject_wallet — коннектор не реализует disconnect(). Кнопка визуально присутствует, но wagmi state не сбрасывается.
+- **Поле адреса получателя в Send** — `<textarea>`, не `<input>`. Используется `textarea[placeholder*='Address on']`.
+- **MAX кнопка в Send** — текст `"Max"` (не `"MAX"`), кнопка Submit — `"Send"` (не `"SEND"`).
+- **Кнопка Continue в buy crypto** — текст `"Continue"` (с заглавной), disabled пока инпут пустой.
+- **Инпут суммы** в buy crypto и send — `input.mantine-NumberInput-input` (не `input` first, который находит скрытый switch из Mantine).
+- **Unlimit виджет** загружается в `<iframe src="https://onramp.crypto.unlimit.com/?ucMode=SDK">` внутри `#gatefi-widget`. Playwright обходит cross-origin ограничения через CDP — используется `page.frame_locator("#gatefi-widget iframe")`. "USDT" и сеть ищутся напрямую в iframe, не через "You get" текст (тот содержит только лейбл без дочерних элементов).
+- **Clipboard тесты** требуют отдельной фикстуры с `browser.new_context(permissions=["clipboard-read", "clipboard-write"])` — permissions нельзя добавить к уже созданному контексту.
+
 **KYC-тесты (minClientTier=20):** отложены — требуют wallet signing. Когда пул требует tier=20, при tier<20 приложение показывает Terms (PROOF OF AGREEMENT), которые нельзя принять без подписи кошелька. inject_wallet не поддерживает signing.
 
 **Что не работает** (задокументировано в `wallet_injection.py`):
@@ -252,5 +275,6 @@ context.close()  # ← закрывает и страницу, и контекс
 - [x] Шаг 3: UI-тесты с мок-кошельком — базовые (адрес в хедере, my-portfolio, deposit/withdraw кнопки)
 - [x] Шаг 3.5: UI-тесты модалок депозита (Pool A + Pool B), вывода (Pool B), Fund wallet (Pool C)
 - [x] Шаг 3.6: UI-тесты Compliance KYT (Pool A minClientTier=10, Pool B minClientTier=0) — мок верификации
+- [x] Шаг 3.7: UI-тесты модалки кошелька (Wallet Menu Modal) — адрес/балансы, fund wallet flow, buy crypto + Unlimit widget, receive funds + clipboard, send form validation
 - [ ] Шаг 4: UI-тесты on-chain транзакций (signing flow, верификация через API)
 - [ ] Шаг 5: TRX-тесты (on-chain транзакции)

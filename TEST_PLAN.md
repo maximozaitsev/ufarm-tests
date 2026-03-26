@@ -124,6 +124,8 @@
 > Фикстуры: `page_with_wallet`, `page_with_wallet_on_pool`, `page_with_wallet_on_single_token_pool`, `page_with_zero_wallet_on_min_deposit_pool`.
 > Мок `_mock_auth_connect` — подменяет `GET /auth/connect/{address}` до `page.goto()`, чтобы `userData.createdAt` был доступен в React-состоянии сразу (иначе вместо Deposit открывается PROOF OF AGREEMENT).
 
+> **Изоляция тестов.** Каждая фикстура создаёт отдельный браузерный контекст (`browser.new_context()`), а не страницу в общем контексте (`browser.new_page()`). Это гарантирует что тесты не делят localStorage, cookies и sessionStorage. Никакой тест не должен мутировать состояние бэкенда (нельзя кликать submit в gasless-режиме без реальной подписи): pending-транзакции на бэке заставляют приложение автоматически открывать модалку при следующем входе и ломают последующие тесты. Подробнее: раздел "Независимость тестов" в `CLAUDE.md`.
+
 ### 4.1 Базовые тесты — `tests/ui/market/test_marketplace_with_wallet.py`
 
 > Фикстура: `page_with_wallet` (открывает `/marketplace`, инжектирует кошелёк, хедер показывает адрес).

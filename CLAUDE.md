@@ -216,6 +216,34 @@ Allure-отчёт → GitHub Pages (ветка `gh-pages`).
 - Pre-populate localStorage — wagmi сбрасывает состояние (UID коннектора генерируется случайно)
 - Модальный UI-флоу — MetaMask показывает QR, Browser Wallet не обнаруживается в headless Chromium
 
+## Независимость тестов (Test Isolation)
+
+**Каждый UI-тест должен быть независим от остальных** — проходить в любом порядке, в любой комбинации, в полном suite.
+
+### Как обеспечивается изоляция
+
+**Браузерный контекст** — каждая фикстура создаёт изолированный контекст через `browser.new_context()`, а не `browser.new_page()`:
+```python
+context = browser.new_context()  # ← изолированный контекст
+page = context.new_page()
+...
+yield page
+context.close()  # ← закрывает и страницу, и контекст
+```
+`new_page()` создаёт страницу в **общем дефолтном контексте** браузера — все тесты делят localStorage, cookies и sessionStorage. `new_context()` даёт каждому тесту собственное окружение, полностью изолированное от других.
+
+**Reown modal race condition** — после `inject_wallet()` Reown кратковременно (~100–200 мс) открывает overlay, пока reconcile-ит wallet connection state. `wait_for_pool_page()` явно ждёт исчезновения `.mantine-Modal-overlay` перед возвратом — иначе тест, запущенный в прогретой JVM после других тестов, кликает кнопку в этом окне и получает `overlay intercepts pointer events`.
+
+**Мутации бэкенда** — нельзя кликать кнопки submit (Deposit, Request Withdrawal) в gasless-режиме без реальной подписи. Gasless-транзакция уходит на бэкенд с `signature=0x0` (мок) и создаёт `pending`-запись, которая заставляет приложение **автоматически открывать модалку** при следующей загрузке страницы с тем же кошельком — все последующие тесты падают. Тесты `test_deposit_triggers_signing` / `test_withdraw_triggers_signing` проверяют только что кнопка стала активной, без реального клика.
+
+### Диагностика если тесты снова начнут падать в связке
+
+1. Запустить подозрительный тест изолированно — если проходит, проблема в order-dependency.
+2. Добавить `SLOWMO=200` ко всему suite — если проходит, проблема в timing (race condition).
+3. Добавить `SLOWMO=200` только к подозрительному тесту и сравнить.
+4. Проверить что фикстуры используют `browser.new_context()`, а не `browser.new_page()`.
+5. Проверить что ни один тест не кликает submit-кнопки в gasless-режиме.
+
 ## Текущий статус
 
 - [x] Шаг 1: API-тесты (healthcheck, pool list, pool detail, portfolio)

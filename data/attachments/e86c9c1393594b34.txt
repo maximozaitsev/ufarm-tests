@@ -1,2 +1,0 @@
-
-  Табы истории: ['Transactions', 'actions']

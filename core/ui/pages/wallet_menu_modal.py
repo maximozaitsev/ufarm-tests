@@ -67,6 +67,33 @@ class WalletMenuModal:
         """Метка 'ETH' в строке баланса."""
         return self._root.locator("p").filter(has_text="ETH").first
 
+    def get_balance_value(self, token: str) -> str:
+        """Возвращает числовую часть баланса токена (без названия) через JS.
+
+        Ищет <p> с точным именем токена внутри модалки, берёт его parentElement
+        и извлекает только text-узлы (nodeType=3) — т.е. число без дочерних элементов.
+
+        Примеры возвращаемых значений: '5,8', '2', '0.00230363'
+
+        XPath '..' не используется: в ряде версий Playwright он возвращает
+        исходный элемент, а не родителя.
+        """
+        return self.page.evaluate(
+            """([sel, token]) => {
+                const modal = document.querySelector(sel);
+                if (!modal) return '';
+                const p = [...modal.querySelectorAll('p')]
+                    .find(el => el.textContent.trim() === token);
+                if (!p) return '';
+                return [...p.parentElement.childNodes]
+                    .filter(n => n.nodeType === 3)
+                    .map(n => n.textContent.trim())
+                    .filter(Boolean)
+                    .join('');
+            }""",
+            ["[data-modal-content='true']", token],
+        )
+
     # ── Главная страница: кнопки действий ─────────────────────────────────
 
     def fund_wallet_button(self):

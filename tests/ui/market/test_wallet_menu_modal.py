@@ -10,10 +10,14 @@
   - Send: форма, валидация кнопки
 """
 
+from decimal import Decimal, ROUND_DOWN
+
 import allure
 import pytest
+import requests
 
 from core.ui.mocks import mock_auth_connect
+from core.ui.on_chain import get_erc20_balance, USDT_ARB, USDC_ARB, ARB_MAINNET_RPC
 from core.ui.pages.marketplace_page import MarketplacePage
 from core.ui.pages.wallet_menu_modal import WalletMenuModal
 
@@ -44,7 +48,71 @@ def page_with_wallet_clipboard(browser, base_url, test_wallet_address):
     context.close()
 
 
+# ── Фикстуры балансов ─────────────────────────────────────────────────────────
+
+
+@pytest.fixture(scope="session")
+def wallet_usdc_balance(test_wallet_address) -> Decimal:
+    """On-chain USDC баланс тестового кошелька на Arbitrum."""
+    return get_erc20_balance(test_wallet_address, USDC_ARB)
+
+
+@pytest.fixture(scope="session")
+def wallet_eth_balance(test_wallet_address) -> Decimal:
+    """Нативный ETH баланс тестового кошелька на Arbitrum через eth_getBalance."""
+    payload = {
+        "jsonrpc": "2.0",
+        "method": "eth_getBalance",
+        "params": [test_wallet_address, "latest"],
+        "id": 1,
+    }
+    resp = requests.post(ARB_MAINNET_RPC, json=payload, timeout=15)
+    resp.raise_for_status()
+    raw = int(resp.json()["result"], 16)
+    return Decimal(raw) / Decimal(10 ** 18)
+
+
 # ── Вспомогательные функции ───────────────────────────────────────────────────
+
+
+def _parse_balance_text(row_text: str) -> Decimal:
+    """Извлекает числовой баланс из текста строки баланса модалки.
+
+    Примеры входных строк (inner_text() строки баланса):
+      '5,8\\n USDT'   → Decimal('5.8')
+      '2\\n USDC'     → Decimal('2')
+      '0.00230363 \\n ETH' → Decimal('0.00230363')
+
+    Обработка разделителей:
+      - Запятая перед ≤ 2 цифрами в конце → десятичный разделитель ('5,8' → '5.8')
+      - Запятая перед >2 цифрами → разделитель тысяч ('1,234' → '1234')
+    """
+    number = row_text.split("\n")[0].strip()
+    if "," in number:
+        parts = number.split(",")
+        if len(parts[-1]) <= 2:
+            number = number.replace(",", ".")   # десятичный разделитель
+        else:
+            number = number.replace(",", "")    # разделитель тысяч
+    return Decimal(number)
+
+
+def _assert_balance_matches(displayed: Decimal, on_chain: Decimal, token: str):
+    """Проверяет что отображаемый баланс соответствует on-chain значению.
+
+    Допустимое отклонение — пол-единицы последнего отображаемого знака.
+    Примеры:
+      '5,8' (1 знак) → tolerance = 0.05
+      '2'   (0 знаков) → tolerance = 0.5
+      '0.00230363' (8 знаков) → tolerance = 0.000000005
+    """
+    sign, digits, exponent = displayed.normalize().as_tuple()
+    decimal_places = max(0, -exponent)
+    tolerance = Decimal(1) / (Decimal(10) ** decimal_places) / 2
+    assert abs(displayed - on_chain) <= tolerance, (
+        f"{token} balance mismatch: UI shows {displayed}, on-chain {on_chain} "
+        f"(tolerance ±{tolerance})"
+    )
 
 
 def _open_wallet_modal(page, mp: MarketplacePage) -> WalletMenuModal:
@@ -85,40 +153,40 @@ def _navigate_to_receive_funds(page, mp: MarketplacePage) -> WalletMenuModal:
 @allure.epic("Market")
 @allure.feature("UI")
 @allure.story("Wallet Modal")
-@allure.title("Wallet modal opens on header button click")
+@allure.title("Wallet modal main page: address, balances and action buttons")
 @allure.severity(allure.severity_level.CRITICAL)
-def test_wallet_modal_opens(page_with_wallet):
-    mp = MarketplacePage(page_with_wallet)
+def test_wallet_modal_main_page(
+    page_with_wallet,
+    test_wallet_address,
+    wallet_usdt_balance,
+    wallet_usdc_balance,
+    wallet_eth_balance,
+):
+    """Smoke-тест главной страницы модалки кошелька.
 
-    with allure.step("Кликаем кнопку кошелька в хедере"):
-        modal = _open_wallet_modal(page_with_wallet, mp)
-
-    with allure.step("Скриншот открытой модалки"):
-        allure.attach(
-            page_with_wallet.screenshot(),
-            name="Wallet modal opened",
-            attachment_type=allure.attachment_type.PNG,
-        )
-
-    with allure.step("Метка 'My wallet' видна"):
-        assert modal.my_wallet_label().is_visible(), "'My wallet' label not visible"
-
-
-@allure.epic("Market")
-@allure.feature("UI")
-@allure.story("Wallet Modal")
-@allure.title("Wallet modal shows truncated wallet address")
-@allure.severity(allure.severity_level.CRITICAL)
-def test_wallet_modal_shows_address(page_with_wallet, test_wallet_address):
+    Проверяет за один проход:
+    - модалка открывается
+    - отображается сокращённый адрес кошелька
+    - балансы USDT / USDC / ETH видны и совпадают с on-chain значениями
+    - кнопки fund wallet, Send, Disconnect присутствуют
+    """
     mp = MarketplacePage(page_with_wallet)
 
     with allure.step("Открываем модалку кошелька"):
         modal = _open_wallet_modal(page_with_wallet, mp)
 
-    addr_start = test_wallet_address[:6].lower()
-    addr_end = test_wallet_address[-4:].lower()
+    with allure.step("Скриншот открытой модалки"):
+        allure.attach(
+            page_with_wallet.screenshot(),
+            name="Wallet modal main page",
+            attachment_type=allure.attachment_type.PNG,
+        )
 
-    with allure.step(f"Адрес отображается как {addr_start}...{addr_end}"):
+    # ── Адрес ──────────────────────────────────────────────────────────────
+
+    addr_start = test_wallet_address[:6].lower()
+
+    with allure.step(f"Отображается сокращённый адрес кошелька ({addr_start}...)"):
         display = modal.address_display()
         display.wait_for(state="visible", timeout=5_000)
         address_text = display.inner_text().lower()
@@ -129,49 +197,28 @@ def test_wallet_modal_shows_address(page_with_wallet, test_wallet_address):
             f"Expected truncated address (with ...) in: {address_text!r}"
         )
 
+    # ── Балансы ─────────────────────────────────────────────────────────────
 
-@allure.epic("Market")
-@allure.feature("UI")
-@allure.story("Wallet Modal")
-@allure.title("Wallet modal shows USDT, USDC and ETH balance sections")
-@allure.severity(allure.severity_level.NORMAL)
-def test_wallet_modal_shows_token_balances(page_with_wallet):
-    mp = MarketplacePage(page_with_wallet)
+    with allure.step(f"USDT баланс виден и совпадает с on-chain ({wallet_usdt_balance} USDT)"):
+        modal.usdt_balance_label().wait_for(state="visible", timeout=5_000)
+        usdt_displayed = _parse_balance_text(modal.get_balance_value("USDT"))
+        _assert_balance_matches(usdt_displayed, wallet_usdt_balance, "USDT")
 
-    with allure.step("Открываем модалку кошелька"):
-        modal = _open_wallet_modal(page_with_wallet, mp)
+    with allure.step(f"USDC баланс виден и совпадает с on-chain ({wallet_usdc_balance} USDC)"):
+        modal.usdc_balance_label().wait_for(state="visible", timeout=5_000)
+        usdc_displayed = _parse_balance_text(modal.get_balance_value("USDC"))
+        _assert_balance_matches(usdc_displayed, wallet_usdc_balance, "USDC")
 
-    with allure.step("Скриншот блока балансов"):
-        allure.attach(
-            page_with_wallet.screenshot(),
-            name="Wallet balances",
-            attachment_type=allure.attachment_type.PNG,
-        )
+    with allure.step(f"ETH баланс виден и совпадает с on-chain ({wallet_eth_balance:.8f} ETH)"):
+        modal.eth_balance_label().wait_for(state="visible", timeout=5_000)
+        eth_displayed = _parse_balance_text(modal.get_balance_value("ETH"))
+        _assert_balance_matches(eth_displayed, wallet_eth_balance, "ETH")
 
-    with allure.step("Блоки балансов USDT, USDC, ETH отображаются"):
-        assert modal.usdt_balance_label().is_visible(), "USDT balance label not visible"
-        assert modal.usdc_balance_label().is_visible(), "USDC balance label not visible"
-        assert modal.eth_balance_label().is_visible(), "ETH balance label not visible"
+    # ── Кнопки действий ─────────────────────────────────────────────────────
 
-
-@allure.epic("Market")
-@allure.feature("UI")
-@allure.story("Wallet Modal")
-@allure.title("Wallet modal has fund wallet, send and disconnect buttons")
-@allure.severity(allure.severity_level.NORMAL)
-def test_wallet_modal_has_action_buttons(page_with_wallet):
-    mp = MarketplacePage(page_with_wallet)
-
-    with allure.step("Открываем модалку кошелька"):
-        modal = _open_wallet_modal(page_with_wallet, mp)
-
-    with allure.step("Кнопка 'fund wallet' видна"):
+    with allure.step("Кнопки 'fund wallet', 'Send', 'Disconnect' видны"):
         assert modal.fund_wallet_button().is_visible(), "'fund wallet' button not visible"
-
-    with allure.step("Кнопка 'Send' видна"):
         assert modal.send_nav_button().is_visible(), "'Send' button not visible"
-
-    with allure.step("Кнопка 'Disconnect' видна"):
         assert modal.disconnect_button().is_visible(), "'Disconnect' button not visible"
 
 

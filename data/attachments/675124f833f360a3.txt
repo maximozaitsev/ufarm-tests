@@ -1,0 +1,2 @@
+buy: 2.6 USDT / 0.9952 = 2.6125 pool tokens
+sell input: 2.6125 pool tokens, diff: 0.00%

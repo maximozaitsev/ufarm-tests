@@ -28,6 +28,22 @@ class WalletMenuModal:
         self._root.wait_for(state="visible", timeout=timeout)
         self._root.get_by_text("My wallet").wait_for(state="visible", timeout=timeout)
 
+    def wait_for_balances(self, timeout: int = 10_000):
+        """Ждёт загрузки балансов токенов.
+
+        После открытия модалки USDT/USDC показывают mantine-Loader-root спиннер,
+        пока приложение получает on-chain балансы. ETH загружается аналогично.
+        Ждём пока все спиннеры внутри модалки исчезнут.
+        """
+        self.page.wait_for_function(
+            """(sel) => {
+                const modal = document.querySelector(sel);
+                return modal && modal.querySelectorAll('.mantine-Loader-root').length === 0;
+            }""",
+            arg="[data-modal-content='true']",
+            timeout=timeout,
+        )
+
     def is_visible(self) -> bool:
         return self._root.is_visible()
 

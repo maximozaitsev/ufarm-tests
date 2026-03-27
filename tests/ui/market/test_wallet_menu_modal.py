@@ -199,18 +199,21 @@ def test_wallet_modal_main_page(
 
     # ── Балансы ─────────────────────────────────────────────────────────────
 
+    with allure.step("Ждём загрузки балансов (исчезновения спиннеров)"):
+        modal.wait_for_balances(timeout=15_000)
+
     with allure.step(f"USDT баланс виден и совпадает с on-chain ({wallet_usdt_balance} USDT)"):
-        modal.usdt_balance_label().wait_for(state="visible", timeout=5_000)
+        assert modal.usdt_balance_label().is_visible(), "USDT balance label not visible"
         usdt_displayed = _parse_balance_text(modal.get_balance_value("USDT"))
         _assert_balance_matches(usdt_displayed, wallet_usdt_balance, "USDT")
 
     with allure.step(f"USDC баланс виден и совпадает с on-chain ({wallet_usdc_balance} USDC)"):
-        modal.usdc_balance_label().wait_for(state="visible", timeout=5_000)
+        assert modal.usdc_balance_label().is_visible(), "USDC balance label not visible"
         usdc_displayed = _parse_balance_text(modal.get_balance_value("USDC"))
         _assert_balance_matches(usdc_displayed, wallet_usdc_balance, "USDC")
 
     with allure.step(f"ETH баланс виден и совпадает с on-chain ({wallet_eth_balance:.8f} ETH)"):
-        modal.eth_balance_label().wait_for(state="visible", timeout=5_000)
+        assert modal.eth_balance_label().is_visible(), "ETH balance label not visible"
         eth_displayed = _parse_balance_text(modal.get_balance_value("ETH"))
         _assert_balance_matches(eth_displayed, wallet_eth_balance, "ETH")
 

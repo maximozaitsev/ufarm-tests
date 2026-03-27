@@ -1,0 +1,22 @@
+[
+  {
+    "asset": "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+    "tokenType": "Token",
+    "allocation": 15.75
+  },
+  {
+    "asset": "0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9",
+    "tokenType": "Token",
+    "allocation": 82.66
+  },
+  {
+    "asset": "0x4a03f37e7d3fc243e3f99341d36f4b829bee5e03",
+    "tokenType": "Custom_Token",
+    "allocation": 1.57
+  },
+  {
+    "asset": "0x94312a608246cecfce6811db84b3ef4b2619054e",
+    "tokenType": "Custom_Token",
+    "allocation": 0.0
+  }
+]

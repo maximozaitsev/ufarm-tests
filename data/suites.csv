@@ -1,5 +1,21 @@
 "Status","Start Time","Stop Time","Duration in ms","Parent Suite","Suite","Sub Suite","Test Class","Test Method","Name","Description"
-"broken","Fri Mar 27 12:31:20 UTC 2026","Fri Mar 27 12:31:20 UTC 2026","0","tests.trx.market","test_deposit_trx","","","","Gasless deposit 1 USDT: relay accepts request, UI shows pending approval","Безгазовый депозит 1 USDT принят relay: UI показывает 'Request submitted'.
+"passed","Fri Mar 27 12:32:47 UTC 2026","Fri Mar 27 12:32:47 UTC 2026","120","tests.api","test_portfolio","","","","Portfolio returns correct structure",""
+"passed","Fri Mar 27 12:32:53 UTC 2026","Fri Mar 27 12:32:53 UTC 2026","393","tests.ui.market","test_deposit_modal","","","","Deposit modal opens on single-token pool",""
+"skipped","Fri Mar 27 12:32:43 UTC 2026","Fri Mar 27 12:32:43 UTC 2026","0","tests.api","test_leaderboard","","","","Leaderboard user addresses are valid Ethereum addresses",""
+"passed","Fri Mar 27 12:32:44 UTC 2026","Fri Mar 27 12:32:44 UTC 2026","119","tests.api","test_pool_detail","","","","Pool financials are consistent: valueManaged = totalDeposited + revenue",""
+"passed","Fri Mar 27 12:32:47 UTC 2026","Fri Mar 27 12:32:47 UTC 2026","122","tests.api","test_portfolio","","","","Portfolio totals match sum of per-pool stats",""
+"passed","Fri Mar 27 12:32:44 UTC 2026","Fri Mar 27 12:32:44 UTC 2026","118","tests.api","test_pool_detail","","","","Pool asset allocations sum to ~100%",""
+"passed","Fri Mar 27 12:33:01 UTC 2026","Fri Mar 27 12:33:02 UTC 2026","369","tests.ui.market","test_deposit_modal","","","","Deposit modal input is visible",""
+"skipped","Fri Mar 27 12:32:43 UTC 2026","Fri Mar 27 12:32:43 UTC 2026","0","tests.api","test_points","","","","Portfolio points match leaderboard points for top addresses","
+    Берём первые 10 адресов из лидерборда и для каждого сравниваем
+    portfolio.points с leaderboard.points.
+    Оба эндпоинта — PROD ETH /api/v2.
+    "
+"skipped","Fri Mar 27 12:32:43 UTC 2026","Fri Mar 27 12:32:43 UTC 2026","0","tests.api","test_leaderboard","","","","Leaderboard entries are sorted by points descending",""
+"skipped","Fri Mar 27 12:32:43 UTC 2026","Fri Mar 27 12:32:43 UTC 2026","0","tests.api","test_leaderboard","","","","Leaderboard pagination invariants hold across all pages",""
+"passed","Fri Mar 27 12:32:47 UTC 2026","Fri Mar 27 12:32:47 UTC 2026","120","tests.api","test_portfolio","","","","Portfolio pool balance formula: totalBalance = deposited − withdrawn + realizedPnL + unrealizedPnL",""
+"skipped","Fri Mar 27 12:32:43 UTC 2026","Fri Mar 27 12:32:43 UTC 2026","0","tests.api","test_leaderboard","","","","Leaderboard user addresses are unique across all pages",""
+"broken","Fri Mar 27 12:32:47 UTC 2026","Fri Mar 27 12:32:47 UTC 2026","0","tests.trx.market","test_deposit_trx","","","","Gasless deposit 1 USDT: relay accepts request, UI shows pending approval","Безгазовый депозит 1 USDT принят relay: UI показывает 'Request submitted'.
 
     Gasless-режим: пользователь подписывает два EIP-712 сообщения
     (USDT EIP-2612 Permit + UFarm deposit), relay отправляет транзакцию.
@@ -12,3 +28,12 @@
     4. UI показывает модалку «Request submitted»
     5. После закрытия модалки — страница пула показывает 'pending approval'
     "
+"passed","Fri Mar 27 12:32:43 UTC 2026","Fri Mar 27 12:32:44 UTC 2026","608","tests.api","test_pool_detail","","","","Pool detail returns correct structure",""
+"passed","Fri Mar 27 12:33:15 UTC 2026","Fri Mar 27 12:33:15 UTC 2026","366","tests.ui.market","test_deposit_modal","","","","Gasless toggle is ON by default",""
+"passed","Fri Mar 27 12:32:46 UTC 2026","Fri Mar 27 12:32:47 UTC 2026","806","tests.api","test_pools_list","","","","Pool list returns only active public pools with valid fields",""
+"passed","Fri Mar 27 12:33:10 UTC 2026","Fri Mar 27 12:33:11 UTC 2026","582","tests.ui.market","test_deposit_modal","","","","MAX button fills input with wallet on-chain balance","Клик MAX заполняет инпут суммой on-chain USDT баланса кошелька."
+"passed","Fri Mar 27 12:32:57 UTC 2026","Fri Mar 27 12:32:57 UTC 2026","310","tests.ui.market","test_deposit_modal","","","","Single-token pool deposit modal has no token dropdown","В single-token пуле в модалке нет комбобокса/дропдауна выбора токена."
+"passed","Fri Mar 27 12:33:06 UTC 2026","Fri Mar 27 12:33:06 UTC 2026","314","tests.ui.market","test_deposit_modal","","","","Deposit modal submit button is disabled when input is empty",""
+"passed","Fri Mar 27 12:32:44 UTC 2026","Fri Mar 27 12:32:46 UTC 2026","2031","tests.api","test_pools_list","","","","Pool list response matches Pydantic model",""
+"passed","Fri Mar 27 12:32:42 UTC 2026","Fri Mar 27 12:32:43 UTC 2026","758","tests.api","test_healthcheck","","","","API documentation endpoint is available",""
+"skipped","Fri Mar 27 12:32:43 UTC 2026","Fri Mar 27 12:32:43 UTC 2026","0","tests.api","test_leaderboard","","","","Leaderboard response matches Pydantic model",""

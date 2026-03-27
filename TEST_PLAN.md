@@ -82,29 +82,510 @@
 
 ---
 
-## 3. UI-тесты без кошелька (Шаг 2 — запланировано)
+## 3. UI-тесты без кошелька (Шаг 2 — реализовано)
 
-> Playwright, без подключения кошелька. Проверяют навигацию и структуру страниц.
+> Playwright (Chromium, headless), без подключения кошелька. Проверяют навигацию и структуру страниц.
+> Файл: `tests/ui/market/test_marketplace_no_wallet.py`
+> Разметка: `@pytest.mark.ui` + `@pytest.mark.smoke`
 
-- Загрузка `/marketplace`: хедер, табы, список пулов.
-- Переход на страницу пула из списка: URL, наличие кнопок DEPOSIT/WITHDRAW.
-- Сортировка карточек пулов по `valueManaged` desc на стороне UI.
-- Состояние без кошелька: нет доступа к портфолио, кнопка `Connect wallet`.
+#### `test_marketplace_page_loads` · smoke · CRITICAL
+- **Что:** Страница `/marketplace` открывается, карточки пулов загружаются, `<title>` == `"Marketplace"`.
+
+#### `test_header_elements_visible` · smoke · NORMAL
+- **Что:** В хедере видны: логотип UFarm, таб `All products`, таб `My portfolio`, кнопка `Connect Wallet`.
+
+#### `test_pool_cards_displayed` · smoke · CRITICAL
+- **Что:** На странице отображается минимум 1 карточка пула.
+
+#### `test_pool_card_navigation` · smoke · CRITICAL
+- **Что:** Клик на карточку пула → переход на URL вида `/marketplace/pool/{uuid}`.
+
+#### `test_connect_wallet_button_opens_modal` · smoke · NORMAL
+- **Что:** Клик на `Connect Wallet` в хедере → появляется модалка Reown (`w3m-modal-card`).
+
+#### `test_pool_page_elements_visible` · smoke · CRITICAL
+- **Что:** На странице пула виден `h1` с названием пула, блок депозита, кнопка `Connect wallet to deposit`.
+
+#### `test_pool_page_history_tabs_visible` · smoke · NORMAL
+- **Что:** На странице пула присутствуют ARIA-табы `Transactions` и `actions`.
+
+#### `test_my_portfolio_no_wallet` · smoke · NORMAL
+- **Что:** Клик на таб `My portfolio` → появляется модалка Reown (навигации на `/my-portfolio` не происходит без кошелька).
+
+> **Примечание по селекторам:** Используются ARIA-роли (`get_by_role`), видимый текст (`get_by_text`) и классы UI-библиотеки Mantine (`.mantine-Paper-root`). CSS-классы с хэшами CSS-модулей (`_offer_1uf7l_1` и т.п.) не используются — они нестабильны между сборками.
+
+> **Отладка:** `HEADED=1 SLOWMO=800 pytest tests/ui/ -v -s` — в видимом браузере. `PWDEBUG=1` — Playwright Inspector.
 
 ---
 
-## 4. UI-тесты с мок-кошельком (Шаг 3 — запланировано)
+## 4. UI-тесты с кошельком (Шаг 3 — реализовано)
 
-> Playwright + инжект `window.ethereum` (mock provider). Имитирует подключённый кошелёк.
+> Playwright + `inject_wallet()` — программная инжекция через React Fiber в wagmi store.
+> Фикстуры: `page_with_wallet`, `page_with_wallet_on_pool`, `page_with_wallet_on_single_token_pool`, `page_with_zero_wallet_on_min_deposit_pool`.
+> Мок `_mock_auth_connect` — подменяет `GET /auth/connect/{address}` до `page.goto()`, чтобы `userData.createdAt` был доступен в React-состоянии сразу (иначе вместо Deposit открывается PROOF OF AGREEMENT).
 
-- Отображение адреса и баланса в хедере после подключения.
-- Открытие модалки кошелька (FUND WALLET, SEND, DISCONNECT).
-- Доступность страницы `/marketplace/my-portfolio` с подключённым кошельком.
-- Кнопки DEPOSIT и WITHDRAW доступны и открывают модалки.
+> **Изоляция тестов.** Каждая фикстура создаёт отдельный браузерный контекст (`browser.new_context()`), а не страницу в общем контексте (`browser.new_page()`). Это гарантирует что тесты не делят localStorage, cookies и sessionStorage. Никакой тест не должен мутировать состояние бэкенда (нельзя кликать submit в gasless-режиме без реальной подписи): pending-транзакции на бэке заставляют приложение автоматически открывать модалку при следующем входе и ломают последующие тесты. Подробнее: раздел "Независимость тестов" в `CLAUDE.md`.
+
+### 4.1 Базовые тесты — `tests/ui/market/test_marketplace_with_wallet.py`
+
+> Фикстура: `page_with_wallet` (открывает `/marketplace`, инжектирует кошелёк, хедер показывает адрес).
+
+#### `test_wallet_address_shown_in_header` · smoke · CRITICAL
+- **Что:** После инжекции кошелька хедер показывает адрес вместо "Connect Wallet".
+- **Как:** `page_with_wallet` → `inject_wallet()` → проверяет `header.inner_text()` содержит начало адреса.
+
+#### `test_my_portfolio_accessible_with_wallet` · smoke · CRITICAL
+- **Что:** С подключённым кошельком клик на таб "My portfolio" ведёт на `/marketplace/my-portfolio`, а не открывает Reown-модалку.
+- **Как:** `page_with_wallet` → клик на таб → `wait_for_url("**/my-portfolio**")` → проверяет отсутствие Reown-модалки.
+- **Примечание:** SPA-навигация (click, не goto) — wallet state в памяти сохраняется.
+
+#### `test_deposit_withdrawal_buttons_visible_with_wallet` · smoke · CRITICAL
+- **Что:** На странице пула с кошельком видны кнопки Deposit и Withdraw, кнопка "Connect wallet to deposit" скрыта.
+- **Как:** `page_with_wallet_on_pool` → `wait_for_pool_page()` → `deposit_button().is_visible()` → `wait_for_withdraw_button()` (ждёт загрузки баланса) → проверяет отсутствие "Connect wallet to deposit".
+- **Примечание:** Кнопка "Withdraw" появляется только после загрузки баланса пользователя по API (~5-10 сек после inject_wallet). "Withdrawal" (с -al) — это тип операции в таблице истории, не кнопка.
+
+#### `test_deposit_modal_opens` · smoke · CRITICAL
+- **Что:** Клик на кнопку Deposit открывает модалку с переключателем "Gasless transaction".
+- **Как:** `page_with_wallet_on_pool` → `deposit_button().click()` → `deposit_modal().wait_for(visible)` → проверяет наличие "Gasless transaction".
+
+#### `test_withdraw_modal_opens` · smoke · CRITICAL
+- **Что:** Клик на кнопку Withdraw открывает модалку с кнопкой "Request Withdrawal".
+- **Как:** `page_with_wallet_on_pool` → `wait_for_withdraw_button()` → `withdraw_button().click()` → ждёт `get_by_text("Request Withdrawal").visible`.
 
 ---
 
-## 5. UI-тесты: депозит и вывод (Шаг 4 — запланировано)
+### 4.2 Модалка депозита — `tests/ui/market/test_deposit_modal.py`
+
+> Вспомогательная функция `open_deposit_modal()` — кликает Deposit, ждёт heading "DEPOSIT" с таймаутом 15 сек. Если DEPOSIT не появился — тест **FAIL** (не SKIP): Terms замоканы через `_mock_auth_connect()` и не должны появляться.
+>
+> `_mock_auth_connect()` мокает два эндпоинта до `page.goto()`:
+> - `GET /auth/connect/{address}` → `{createdAt: "2024-01-01T...", lastTopUp: null}` (пользователь существует)
+> - `POST /user/verification` → `{signature: "0x0", tier: 10, validTill: 9999999999}` (верификация всегда валидна)
+>
+> Хелпер `_random_valid_deposit(pool_info, wallet_balance)` — генерирует случайную сумму `(max(deposit_min, 0.01), wallet_balance]` с 2 децималами. Используется в нескольких тестах.
+
+**Pool A (single-token):** фикстура `page_with_wallet_on_single_token_pool` (POOL_SINGLE_TOKEN_ID + TEST_WALLET_ADDRESS). TEST_WALLET_ADDRESS имеет депозит в Pool A.
+
+#### `test_deposit_modal_opens_single_token` · smoke · CRITICAL
+- **Что:** Модалка депозита открывается на single-token пуле.
+- **Как:** `open_deposit_modal()` → скриншот.
+
+#### `test_deposit_modal_single_token_no_dropdown` · smoke · NORMAL
+- **Что:** В single-token пуле нет интерактивного дропдауна токенов: `[class*='arrowWrapper']` отсутствует в теле модалки.
+- **Как:** `modal.token_selector_arrow().count() == 0`. В single-token пуле элемент `_current_` имеет класс `_noPointer_` и не кликабелен.
+
+#### `test_deposit_modal_input_visible` · smoke · CRITICAL
+- **Что:** Поле ввода суммы видно.
+- **Как:** `open_deposit_modal()` → `modal.amount_input().is_visible()`.
+
+#### `test_deposit_modal_empty_input_button_disabled` · smoke · CRITICAL
+- **Что:** Кнопка submit отключена когда инпут пустой или = "0".
+- **Как:** `modal.submit_button().is_disabled()`.
+
+#### `test_deposit_modal_max_button_fills_wallet_balance` · smoke · CRITICAL
+- **Что:** Клик MAX заполняет инпут on-chain USDT балансом кошелька (погрешность < 1%).
+- **Как:** Сравнивает `amount_input().input_value()` с `wallet_usdt_balance` (фикстура из conftest).
+- **После MAX:** кнопка submit становится активной.
+
+#### `test_deposit_modal_gasless_on_by_default` · smoke · NORMAL
+- **Что:** Тоглер Gasless включён по умолчанию, текст кнопки = "request deposit".
+- **Как:** `modal.gasless_toggle().is_checked()` + `modal.submit_button_text()`.
+
+#### `test_deposit_modal_gasless_off_shows_instant_deposit` · smoke · CRITICAL
+- **Что:** Отключение Gasless меняет текст кнопки на "instant deposit". Скриншот делается только после того как кнопка уже показывает новый текст (wait_for перед screenshot).
+- **Как:** `gasless_toggle().evaluate("el => el.click()")` → ждёт текст "instant deposit" в кнопке → скриншот.
+
+#### `test_deposit_modal_gasless_on_shows_request_deposit` · smoke · NORMAL
+- **Что:** Повторное включение Gasless возвращает текст "request deposit".
+- **Как:** Выключить → включить → проверить текст.
+
+**Pool B (multi-token):** фикстура `page_with_wallet_on_pool` (TEST_POOL_ID + TEST_WALLET_ADDRESS)
+
+#### `test_deposit_modal_opens_multi_token` · smoke · CRITICAL
+- **Что:** Модалка депозита открывается на multi-token пуле.
+- **Как:** `open_deposit_modal()` → скриншот.
+
+#### `test_deposit_modal_multi_token_has_dropdown` · smoke · NORMAL
+- **Что:** Клик по `[class*='current']` открывает дропдаун, в котором видны варианты из `availableValueTokens` пула (API).
+- **Как:** `modal.token_selector().click()` → `modal.token_dropdown().wait_for(visible)` → проверяет видимость каждого токена. API возвращает тикеры строчными буквами (`usdt`), UI показывает заглавными (`USDT`) — сравнение через `.upper()`.
+
+#### `test_deposit_modal_multi_token_default_token_in_available_list` · smoke · CRITICAL
+- **Что:** Тикер токена по умолчанию входит в список `availableValueTokens` пула (из API).
+- **Как:** `modal.current_token_ticker()` → `.upper()` → проверяет вхождение в `[t.upper() for t in pool_info_multi_token.availableValueTokens]`.
+- **Примечание:** В deposit modal тикер извлекается из `[class*='balance'] p` (текст вида "2 USDC"), последнее слово — тикер.
+
+#### `test_deposit_modal_multi_token_token_switch_changes_ticker` · smoke · CRITICAL
+- **Что:** Переключение токена в дропдауне обновляет тикер в селекторе.
+- **Как:** Запоминает `initial_ticker` → кликает `token_selector()` → ждёт dropdown → кликает `token_option(other_ticker)` → проверяет `current_token_ticker().upper() == other_ticker`.
+
+**Инпут суммы — позитивные:**
+
+#### `test_deposit_modal_valid_amount_enables_submit` · smoke · CRITICAL
+- **Что:** Ввод случайной суммы из диапазона `(min_deposit, wallet_balance]` активирует кнопку submit.
+- **Как:** `_random_valid_deposit(pool_info_single_token, wallet_usdt_balance)` → `fill(amount)` → `not submit_button().is_disabled()`.
+
+**Инпут суммы — негативные:**
+
+#### `test_deposit_modal_zero_amount_disables_submit` · smoke · NORMAL
+- **Что:** Ввод "0" держит кнопку submit задизейбленной.
+- **Как:** `fill("0")` → `submit_button().is_disabled()`.
+
+#### `test_deposit_modal_amount_exceeds_balance_disables_submit` · smoke · CRITICAL
+- **Что:** Ввод суммы больше on-chain баланса кошелька дизейблит кнопку submit.
+- **Как:** `over_balance = wallet_usdt_balance × 2 + 1` → `fill(over_balance)` → `submit_button().is_disabled()`.
+
+#### `test_deposit_modal_clear_input_disables_submit` · smoke · NORMAL
+- **Что:** Очистка инпута после ввода валидной суммы снова дизейблит submit.
+- **Как:** `fill(valid_amount)` → проверяет enabled → `fill("")` → `is_disabled()`.
+
+**Pool C (min deposit):** фикстура `page_with_whale_wallet_on_min_deposit_pool` (POOL_MIN_DEPOSIT_ID + Binance hot wallet)
+
+> Фикстура при старте проверяет on-chain баланс китового кошелька — скипает если < 5000 USDT. `_WHALE_WALLET = 0xF977814e...` (~173M USDT на Arbitrum).
+
+#### `test_deposit_modal_below_min_deposit_shows_error` · smoke · CRITICAL
+- **Что:** Ввод случайной суммы из диапазона `[1, min_deposit)` блокирует кнопку submit и показывает ошибку "Minimum: 5000".
+- **Как:** `random.uniform(1, float(min_deposit) - 0.01)` → `fill(amount)` → `submit_button().is_disabled()` → `get_by_text("Minimum: {display_min}")`.
+- **Фикстуры:** `pool_info_min_deposit`.
+
+**Gasless toggle — состояние при отсутствии ETH:**
+
+#### `test_deposit_modal_gasless_locked_when_no_eth` · smoke · CRITICAL
+- **Что:** Когда у кошелька есть USDT но нет ETH для газа, gasless toggle залочен в состоянии "включён" (checked + disabled), submit кнопка активна.
+- **Как:** `page_with_no_eth_wallet_on_single_token_pool` → `open_deposit_modal()` → вводит случайную сумму → `gasless_toggle().is_checked()` + `gasless_toggle().is_disabled()` + `not submit_button().is_disabled()`.
+- **Фикстуры:** `page_with_no_eth_wallet_on_single_token_pool` (Pool A + WALLET_NO_ETH), `pool_info_single_token`.
+- **Зачем:** Пользователь без ETH не может переключиться на не-gasless режим — приложение должно это предотвращать. Баг здесь потенциально заблокирует депозит.
+
+**Terms (PROOF OF AGREEMENT):**
+
+#### `test_deposit_modal_terms_appear_for_new_user` · smoke · CRITICAL
+- **Что:** При `createdAt=null` (новый пользователь) при клике Deposit открывается PROOF OF AGREEMENT, а не форма депозита.
+- **Как:** Локальная фикстура `page_with_new_user_on_pool` мокает `auth/connect` → `{createdAt: null}` и `user/verification` → 404. Ждёт heading "PROOF OF AGREEMENT".
+- **Зачем:** Проверяет что Terms механизм работает и не ломается при изменениях в условиях показа.
+
+#### `test_deposit_triggers_signing` · smoke · CRITICAL (TBD)
+- **Что:** Клик submit после MAX запускает signing flow.
+- **Статус:** Ожидаем наблюдения в `HEADED=1` — assertion не добавлен.
+
+---
+
+### 4.3 Модалка Fund wallet — `tests/ui/market/test_fund_wallet_modal.py`
+
+> Фикстура: `page_with_zero_wallet_on_min_deposit_pool` — scope=module, страница загружается один раз.
+> Пул Pool C (POOL_MIN_DEPOSIT_ID) + WALLET_ZERO_BALANCE (баланс < min deposit пула).
+>
+> Вспомогательная функция `open_fund_wallet_modal()` — закрывает предыдущую модалку (module-scope), кликает Deposit, ждёт heading "Fund wallet" до 20 сек. Если не появился — `pytest.skip`.
+>
+> Первый тест ~15 сек (on-chain RPC проверка баланса), последующие быстро (кеш приложения).
+
+#### `test_fund_wallet_modal_opens` · smoke · CRITICAL
+- **Что:** Модалка Fund wallet открывается при нулевом балансе кошелька (< min deposit пула).
+- **Как:** `open_fund_wallet_modal()` → `modal.wait_opened()`.
+
+#### `test_fund_wallet_modal_title` · smoke · NORMAL
+- **Что:** Заголовок модалки — "Fund wallet".
+- **Как:** `modal.title().is_visible()`.
+
+#### `test_fund_wallet_modal_text_contains_min_deposit` · smoke · CRITICAL
+- **Что:** Текст-подсказка содержит минимальную сумму депозита из API пула.
+- **Как:** Вычисляет `display_amount` из `pool_info_min_deposit.limits.deposit_min / 10^decimals` → ищет в `modal.hint_text()`.
+
+#### `test_fund_wallet_modal_text_contains_token` · smoke · CRITICAL
+- **Что:** Текст содержит тикер токена из `availableValueTokens` пула.
+- **Как:** Проверяет что любой из `tokens.upper()` присутствует в `modal.hint_text()`.
+
+#### `test_fund_wallet_modal_text_contains_network` · smoke · NORMAL
+- **Что:** Текст содержит название сети текущего окружения (Arbitrum / Ethereum).
+- **Как:** Использует фикстуру `network_name` → ищет в `modal.hint_text()`.
+
+#### `test_fund_wallet_modal_has_buy_crypto` · smoke · NORMAL
+- **Что:** Кнопка "buy crypto" видна.
+- **Как:** `modal.buy_crypto_button().is_visible()`.
+
+#### `test_fund_wallet_modal_has_receive_funds` · smoke · NORMAL
+- **Что:** Кнопка "receive funds" видна.
+- **Как:** `modal.receive_funds_button().is_visible()`.
+
+---
+
+### 4.3.1 Модалка Fund wallet — дополнительные тесты (TODO)
+
+> Текущие тесты (4.3) покрывают базовую структуру модалки. Ниже — планируемое расширение.
+
+#### Кнопки и навигация
+
+- `test_fund_wallet_modal_buy_crypto_opens_external` · smoke · NORMAL
+  - **Что:** Клик "buy crypto" открывает внешний сервис (новая вкладка или редирект).
+  - **Как:** Перехватывает открытие новой страницы (`page.expect_popup()`) → проверяет что URL не пустой и не `/marketplace`.
+
+- `test_fund_wallet_modal_receive_funds_shows_address` · smoke · CRITICAL
+  - **Что:** Клик "receive funds" показывает QR-код и/или адрес кошелька.
+  - **Как:** `modal.receive_funds_button().click()` → ждёт появления адреса кошелька или QR-элемента.
+
+- `test_fund_wallet_modal_closes_on_x` · smoke · NORMAL
+  - **Что:** Крестик закрывает модалку Fund wallet.
+  - **Как:** `modal.close()` → `modal.wait_for(state="hidden")`.
+
+#### Переход к другим токенам / сетям
+
+- `test_fund_wallet_modal_different_pool_different_token` · regression · NORMAL
+  - **Что:** Для пула с другим токеном (USDC) в тексте подсказки указан этот токен.
+  - **Фикстуры:** Нужен пул с USDC и кошелёк с нулевым балансом USDC.
+
+---
+
+### 4.3.2 Коннект кошелька через Social / Email (TODO)
+
+> Ufarm поддерживает подключение через Reown AppKit (социальные сети и email). Тесты требуют отдельного подхода — реальный OAuth сложно автоматизировать headless, поэтому основная стратегия — UI-уровень до редиректа / мок OAuth.
+
+#### Открытие модалки Connect
+
+- `test_connect_wallet_button_opens_modal` · smoke · NORMAL
+  - **Что:** Клик "Connect Wallet" в хедере открывает модалку коннекта (Reown AppKit).
+  - **Как:** `page.locator("button", has_text="Connect Wallet").click()` → ждёт появления модалки с вариантами подключения.
+
+- `test_connect_modal_has_social_options` · smoke · NORMAL
+  - **Что:** В модалке видны опции: Google, Apple, Facebook / Email.
+  - **Как:** Проверяет наличие кнопок с текстом "Google", "Apple" (или иконками соцсетей).
+
+- `test_connect_modal_has_email_option` · smoke · NORMAL
+  - **Что:** В модалке есть поле ввода email или кнопка "Email".
+  - **Как:** Проверяет наличие input[type='email'] или кнопки с текстом "Email".
+
+#### Email-флоу (до внешнего сервиса)
+
+- `test_connect_email_input_accepts_valid_email` · regression · NORMAL
+  - **Что:** После ввода корректного email появляется кнопка продолжения (без реального входа).
+  - **Как:** Заполняет email-поле валидным адресом → проверяет что кнопка "Continue" / "Send code" активна.
+
+- `test_connect_email_invalid_format_shows_error` · regression · NORMAL
+  - **Что:** Ввод невалидного email (без @) показывает ошибку валидации.
+  - **Как:** Заполняет "notanemail" → кнопка Continue недоступна или появляется текст ошибки.
+
+#### Закрытие модалки
+
+- `test_connect_modal_closes_on_escape` · smoke · NORMAL
+  - **Что:** Нажатие Escape (или клик вне модалки) закрывает модалку коннекта.
+  - **Как:** `page.keyboard.press("Escape")` → модалка исчезает.
+
+> **Ограничения:** Полный OAuth-флоу (Google/Apple login) не автоматизируется headless без мока. Для coverage реального входа — использовать заранее созданный тестовый аккаунт с email + OTP (если AppKit поддерживает email code).
+
+---
+
+### 4.4 Модалка вывода — `tests/ui/market/test_withdraw_modal.py`
+
+> Фикстура: `page_with_wallet_on_pool` (TEST_POOL_ID + TEST_WALLET_ADDRESS, кошелёк с ненулевым балансом).
+>
+> **Важно по закрытию модалки:** Escape не закрывает модалку — только клик по иконке крестика `[class*='closeIcon']`. `WithdrawModal.close()` реализован через клик, не через Escape.
+>
+> **Расчёт баланса в токенах пула:** `api_balance_tokens = totalBalance / 10^6 / tokenPrice`, где `totalBalance` из portfolio API — USDT-стоимость инвестиции в наименьших единицах (6 decimals на Arbitrum), `tokenPrice` — из `pool.poolMetric.tokenPrice`.
+
+#### `test_withdraw_modal_opens` · smoke · CRITICAL
+- **Что:** Клик Withdraw открывает модалку вывода, дожидается видимости кнопки Request Withdrawal (модалка полностью отрисована).
+- **Как:** `wait_for_withdraw_button()` → `withdraw_button().click()` → `modal.wait_for()` → `request_withdrawal_button().wait_for(visible)` → скриншот.
+
+#### `test_withdraw_modal_shows_pool_balance` · smoke · CRITICAL
+- **Что:** Баланс в модалке (pool tokens) соответствует portfolio API с учётом tokenPrice (погрешность < 5%).
+- **Как:** `api_balance_tokens = totalBalance / 10^6 / tokenPrice` → парсит "Balance: X" → сравнивает с допуском 5%.
+- **Фикстуры:** `wallet_portfolio`, `test_pool_id`, `pool_info_multi_token`.
+
+#### `test_withdraw_modal_has_request_withdrawal_button` · smoke · CRITICAL
+- **Что:** Кнопка "Request Withdrawal" видна и недоступна при пустом инпуте.
+- **Как:** `request_withdrawal_button().wait_for(state="visible")` + `is_disabled()`.
+
+#### `test_withdraw_modal_pool_input_updates_token_input` · smoke · CRITICAL
+- **Что:** Ввод случайного количества pool tokens в sellCoin пересчитывает buyCoin (USDT). Точность: `buy ≈ sell × tokenPrice` (погрешность < 2%).
+- **Как:** Генерирует `sell_amount = random(0.1, api_balance_tokens)` с 1 децималом → `fill(sell_amount)` → сравнивает `buy_value` с `sell_amount × tokenPrice`.
+- **Фикстуры:** `wallet_portfolio`, `test_pool_id`, `pool_info_multi_token`.
+
+#### `test_withdraw_modal_token_input_updates_pool_input` · smoke · CRITICAL
+- **Что:** Ввод случайной суммы USDT в buyCoin пересчитывает sellCoin (pool tokens). Точность: `sell ≈ buy / tokenPrice` (погрешность < 2%).
+- **Как:** Генерирует `buy_amount = random(0.1, api_balance_usdt)` с 1 децималом → `fill(buy_amount)` → сравнивает `sell_value` с `buy_amount / tokenPrice`.
+- **Фикстуры:** `wallet_portfolio`, `test_pool_id`, `pool_info_multi_token`.
+
+#### `test_withdraw_modal_max_button` · smoke · CRITICAL
+- **Что:** Клик MAX заполняет sellCoin полным балансом (погрешность < 1% от отображаемого "Balance: X").
+- **Как:** Сохраняет значение из "Balance: X" → `max_button().click()` → сравнивает float значения с допуском 1%.
+
+**Негативные сценарии:**
+
+#### `test_withdraw_modal_amount_exceeds_balance_shows_error` · smoke · CRITICAL
+- **Что:** Ввод в sellCoin суммы > баланса показывает ошибку "Not enough pool tokens..." и дизейблит кнопку.
+- **Как:** Вводит `api_balance_tokens × 1.1 + 1` → ждёт текст "Not enough pool tokens" → `request_withdrawal_button().is_disabled()`.
+
+#### `test_withdraw_modal_usdt_exceeds_balance_shows_error` · smoke · CRITICAL
+- **Что:** Ввод в buyCoin суммы USDT > баланса показывает ту же ошибку "Not enough pool tokens..." через второй инпут.
+- **Как:** Вводит `api_balance_usdt × 1.1 + 1` в `withdraw_token_input` → ждёт ошибку → `is_disabled()`.
+
+#### `test_withdraw_modal_zero_amount_shows_error` · smoke · NORMAL
+- **Что:** Ввод 0 в sellCoin показывает ошибку "Please indicate the withdrawal sum...".
+- **Как:** `pool_token_input().fill("0")` → ждёт текст "Please indicate the withdrawal sum".
+
+#### `test_withdraw_modal_clear_input_disables_button` · smoke · NORMAL
+- **Что:** После очистки инпута (ввели "1", потом "") кнопка снова дизейблится.
+- **Как:** `fill("1")` → `fill("")` → `request_withdrawal_button().is_disabled()`.
+
+#### `test_withdraw_modal_reopen_resets_inputs` · smoke · NORMAL
+- **Что:** После закрытия и повторного открытия оба инпута сброшены в пустое/нулевое состояние.
+- **Как:** Вводит "1" → `modal.close()` (клик по крестику) → `withdraw_button().click()` → проверяет что `sellCoin` и `buyCoin` пустые или "0".
+
+**Дропдаун токенов (multi-token пул — Pool B):**
+
+#### `test_withdraw_modal_multi_token_has_dropdown` · smoke · NORMAL
+- **Что:** В multi-token пуле дропдаун токенов присутствует, текущий токен входит в список доступных, все токены пула видны в дропдауне.
+- **Как:** `current_token_ticker().upper()` проверяется на вхождение в `[t.upper() for t in pool_info.available_tokens]` → клик `token_selector()` → для каждого тикера: `token_option(ticker.upper()).is_visible()`.
+- **Важно:** API возвращает тикеры в нижнем регистре (`usdt`, `usdc`) — сравнение через `.upper()`.
+- **Фикстуры:** `page_with_wallet_on_pool`, `pool_info_multi_token`.
+
+#### `test_withdraw_modal_token_switch_updates_output` · smoke · NORMAL
+- **Что:** Переключение токена в дропдауне меняет тикер текущего токена и обновляет поле buyCoin.
+- **Как:** Открывает дропдаун → выбирает токен, отличный от текущего → проверяет `new_ticker.upper() != initial_ticker` → `buy_coin_input().input_value() != ""`.
+- **Фикстуры:** `page_with_wallet_on_pool`, `pool_info_multi_token`.
+
+**Дропдаун токенов (single-token пул — Pool A):**
+
+#### `test_withdraw_modal_single_token_no_dropdown` · smoke · NORMAL
+- **Что:** В single-token пуле стрелка дропдауна (`[class*='arrowWrapper']`) отсутствует.
+- **Как:** `modal.token_selector_arrow().count() == 0`.
+- **Важно:** Элемент `[class*='current']` присутствует в обоих типах пулов (показывает токен), но `_arrowWrapper_` есть только в multi-token.
+- **Фикстуры:** `page_with_wallet_on_single_token_pool` (Pool A, TEST_WALLET_ADDRESS с депозитом).
+
+#### `test_withdraw_triggers_signing` · smoke · CRITICAL (TBD)
+- **Что:** Клик Request Withdrawal после MAX запускает signing flow.
+- **Статус:** Ожидаем наблюдения в `HEADED=1` — assertion не добавлен.
+
+---
+
+### 4.5 Compliance: KYT — `tests/ui/market/test_kyc_kyt.py`
+
+> Мокирование `POST /user/verification` через Playwright LIFO route stacking.
+> `_mock_auth_connect()` (фикстура) регистрирует базовый мок `tier=10`.
+> `_override_verification_tier(page, tier=N)` регистрирует переопределяющий handler поверх — Playwright вызывает handlers в порядке LIFO, переопределение побеждает.
+>
+> Пулы:
+> - Pool A (POOL_SINGLE_TOKEN_ID) — `minClientTier=10` (Strict KYT)
+> - Pool B (TEST_POOL_ID) — `minClientTier=0` (No KYT)
+
+#### `test_kyt_passed_shows_deposit_form` · smoke · CRITICAL
+- **Что:** Если `tier=10 >= minClientTier=10` (дефолтный мок), кнопка Deposit открывает форму DEPOSIT, а не блокировку.
+- **Как:** `page_with_wallet_on_single_token_pool` (без переопределения) → `deposit_button().click()` → `modal.wait_for()` → heading "DEPOSIT" виден.
+- **Зачем:** Базовый happy-path KYT: кошелёк с нужным tier получает доступ к депозиту.
+
+#### `test_kyt_blocked_shows_modal` · smoke · CRITICAL
+- **Что:** Если `tier ∈ {0, 5} < minClientTier=10`, кнопка Deposit открывает модалку "Wallet verification issue" с кнопкой Close. Форма DEPOSIT не открывается.
+- **Как:** `_override_verification_tier(page, tier=random.choice([0, 5]))` → `deposit_button().click()` → `modal.wait_opened()` → `heading().is_visible()` + `close_button().is_visible()` + `not DEPOSIT heading visible`.
+- **Зачем:** Главный KYT-блок: кошелёк без нужного tier не должен получить доступ к депозиту.
+
+#### `test_kyt_blocked_close_button_dismisses_modal` · smoke · NORMAL
+- **Что:** Кнопка Close закрывает модалку блокировки, страница пула остаётся.
+- **Как:** `_override_verification_tier(page, 5)` → Deposit → `modal.wait_opened()` → `close_button().click()` → `heading().wait_for(state="hidden")` → `mp.wait_for_pool_page()`.
+- **Зачем:** UX: пользователь должен иметь возможность закрыть модалку и вернуться к пулу.
+
+#### `test_kyt_blocked_retry_same_result` · smoke · NORMAL
+- **Что:** После закрытия модалки блокировки повторный клик Deposit снова показывает ту же блокировку.
+- **Как:** `_override_verification_tier(page, 5)` → первый Deposit → Close → второй Deposit → `modal.wait_opened()` → heading виден.
+- **Зачем:** Блокировка не должна сниматься после закрытия модалки — tier кошелька не изменился.
+
+#### `test_no_kyt_pool_allows_low_tier` · smoke · CRITICAL
+- **Что:** Pool B (minClientTier=0): verification возвращает tier=0 → открывается DEPOSIT форма (пул без KYT не блокирует никого).
+- **Как:** `page_with_wallet_on_pool` + `_override_verification_tier(page, 0)` → `deposit_button().click()` → `modal.wait_for()` → heading "DEPOSIT" виден.
+- **Зачем:** Инвариант No KYT пула: любой кошелёк (даже с минимальным tier) должен получить доступ к депозиту.
+
+### 4.5.1 Compliance: KYC (TODO)
+
+> KYC-тесты (minClientTier=20) отложены — требуют wallet signing.
+> Когда пул требует tier=20 и verification возвращает tier<20, приложение показывает
+> Terms (PROOF OF AGREEMENT) перед модалкой "Identity verification required".
+> Terms нельзя принять без подписи кошелька. inject_wallet не поддерживает signing.
+
+---
+
+### 4.6 Модалка кошелька — `tests/ui/market/test_wallet_menu_modal.py`
+
+> Открывается кликом на адрес кошелька в хедере. Содержит блок адреса, балансы токенов и три кнопки: fund wallet, Send, Disconnect. Внутри реализованы sub-страницы через навигацию.
+
+**Фикстуры:** `page_with_wallet` (функциональная scope), `page_with_wallet_clipboard` (локальная, с clipboard permissions).
+
+#### Главная страница
+
+| # | Что | Зачем |
+|---|-----|-------|
+| 1 | Модалка открывается по клику на хедер | Базовый smoke |
+| 2 | Показывает сокращённый адрес кошелька | Правильный кошелёк подключён |
+| 3 | Показывает блоки балансов USDT / USDC / ETH | Структура UI |
+| 4 | Видны кнопки fund wallet, Send, Disconnect | Структура UI |
+
+#### Fund wallet: buy crypto
+
+| # | Что | Зачем |
+|---|-----|-------|
+| 5 | fund wallet → показывает buy crypto и receive funds | Навигация корректна |
+| 6 | buy crypto → форма: токен, инпут суммы, Continue | Структура формы |
+| 7 | Continue disabled без суммы, активна после ввода ≥ 15 | Минимальная сумма покупки |
+| 8 | В форме показан адрес кошелька ("fund my wallet: 0x...") | Верный адрес для пополнения |
+| 9 | Continue → Unlimit iframe открыт, USDT виден, сеть верна | Интеграция с Unlimit виджетом |
+
+#### Fund wallet: receive funds
+
+| # | Что | Зачем |
+|---|-----|-------|
+| 10 | receive funds → QR-код и кнопка Copy address | Структура страницы |
+| 11 | Copy address → буфер обмена содержит полный адрес | Clipboard функциональность |
+
+#### Send
+
+| # | Что | Зачем |
+|---|-----|-------|
+| 12 | Send → форма: дропдаун токена, инпут суммы, поле адреса, кнопка Send | Структура формы; плейсхолдер содержит название сети |
+| 13 | Кнопка Send disabled при пустых полях | Валидация |
+| 14 | Кнопка Send активна после MAX + валидного адреса | Валидация |
+
+---
+
+### 4.7 Страница My Portfolio — `tests/ui/market/test_portfolio_page.py`
+
+> Кошелёк: `wallet_active` (0x2AB1aB42...) — активный кошелёк ручного тестирования с богатой историей депозитов на всех окружениях. Баланс постоянно меняется — тесты проверяют структуру и расчёты, не конкретные суммы.
+>
+> Фикстура: `page_on_portfolio` (module-scope) — SPA-навигация из `/marketplace` после inject_wallet; `wait_for()` дожидается ненулевого MY INVESTMENTS (данные приходят асинхронно после рендера заголовков).
+
+#### `test_my_investments_api_matches_onchain` · smoke · CRITICAL · `cross_verified`
+
+- **Что:** `Σ(balanceOf(poolAddress, wallet) × tokenPrice)` = `portfolio.totalBalance` из API.
+- **Как:** Для каждого пула с ненулевым балансом вызывает on-chain `eth_call balanceOf`, умножает на `poolMetric.tokenPrice` из API, суммирует. Сравнивает с `portfolio.totalBalance / 10^6`. Tolerance ±$0.01.
+- **Зачем:** Проверяет корректность индексера бэкенда. `poolStat.totalBalance` — агрегат API; если бэкенд считает неправильно, этот тест поймает расхождение. Браузер не нужен.
+- **Allure:** аттачмент с таблицей-разбивкой по пулам: LP on-chain / tokenPrice / value_usd / poolStat / итог.
+- **Severity:** Critical
+
+#### `test_portfolio_overview_structure` · smoke · NORMAL
+
+- **Что:** Три карточки Overview видны: My wallet, My Investments, all-time profit (с realized и unrealized строками).
+- **Как:** Проверяет `h2` заголовки и наличие `realized`/`unrealized` текстов.
+- **Зачем:** Smoke-тест структуры страницы.
+- **Severity:** Normal
+
+#### `test_portfolio_investments_ui_matches_onchain` · smoke · CRITICAL · `cross_verified`
+
+- **Что:** Значение MY INVESTMENTS в UI совпадает с on-chain расчётом.
+- **Как:** Использует тот же `portfolio_onchain_total` (session fixture, on-chain вычислено один раз). Извлекает UI-значение через JS evaluate (`[class*=_usdt_]` text node). Сравнивает с tolerance ±$0.5 (UI округляет до 1 знака, tokenPrice обновляется периодически).
+- **Зачем:** Верифицирует что UI корректно отображает данные, а данные корректно рассчитаны.
+- **Severity:** Critical
+
+#### `test_portfolio_points_match_api` · smoke · NORMAL
+
+- **Что:** UF-POINTS в UI совпадают с `portfolio.points` из API (±1).
+- **Как:** JS evaluate извлекает text node из `<span>UF-POINTS</span>` родительского `<p>`. Сравнивает с `int(portfolio_api_data["points"])`.
+- **Зачем:** Детальная верификация поинтов — в тестах лидерборда; здесь проверяем только что UI правильно отображает агрегат.
+- **Severity:** Normal
+
+#### `test_portfolio_pool_cards_sorted_by_vault_balance` · smoke · NORMAL
+
+- **Что:** Карточки пулов отсортированы по "My vault balance" по убыванию.
+- **Как:** JS evaluate собирает все `[class*=_valueManaged_]` рядом с `<p>My vault balance</p>`, возвращает список Decimal. Проверяет `balances == sorted(balances, reverse=True)`.
+- **Зачем:** Критично для UX — пользователь ожидает крупнейшие позиции первыми. Лёгко сломать незаметно при изменении сортировки.
+- **Severity:** Normal
+
+---
+
+## 5. UI-тесты: on-chain транзакции (Шаг 4 — запланировано)
 
 > Playwright + мок-провайдер + верификация через API после действия.
 
@@ -158,7 +639,7 @@
 
 Пример: `test_type=api, test_suite=smoke` → `pytest -m "api and smoke"`
 
-Secrets: `TEST_POOL_ID`, `TEST_WALLET_ADDRESS` (добавить в Settings → Secrets → Actions).
+Secrets: `TEST_POOL_ID`, `TEST_WALLET_ADDRESS`, `POOL_SINGLE_TOKEN_ID`, `POOL_MIN_DEPOSIT_ID`, `WALLET_ZERO_BALANCE` (добавить в Settings → Secrets → Actions).
 
 ### Allure-отчёты
 
@@ -168,7 +649,10 @@ Secrets: `TEST_POOL_ID`, `TEST_WALLET_ADDRESS` (добавить в Settings →
 - История хранится 50 последних прогонов — даёт **trendline** и **flaky test** статистику
 
 **Allure-разметка тестов:**
-- `@allure.feature` / `@allure.story` / `@allure.title` — на английском
+- `@allure.epic` — модуль: `"Market"` или `"Fund"`
+- `@allure.feature` — тип: `"API"` или `"UI"`
+- `@allure.story` — фича: `"Leaderboard"`, `"Deposit"` и т.д.
+- `@allure.epic` / `@allure.feature` / `@allure.story` / `@allure.title` — на английском
 - `with allure.step(...)` — на русском, содержит конкретные значения
 - `@allure.severity` — CRITICAL / NORMAL (финансовые инварианты → CRITICAL)
 - `@allure.link` — ссылка на Swagger
@@ -185,11 +669,120 @@ allure serve allure-results
 
 ---
 
-## 7. Ограничения
+## 7. Leaderboard & Points (Шаг 5 — запланировано)
 
-- Все тесты запускаются только против DEMO-окружения.
+> Тесты лидерборда и поинтов **всегда** обращаются к PROD ETH (`https://api.ufarm.digital/api/v2`), независимо от параметра `--env`.
+>
+> Разметка: `@pytest.mark.api` + `@pytest.mark.smoke|regression|extended`
+>
+> Файлы: `tests/api/test_leaderboard.py`, `tests/api/test_points.py`
+
+### 7.1 Структура и пагинация лидерборда — `tests/api/test_leaderboard.py`
+
+#### `test_leaderboard_returns_correct_structure` · smoke
+- **Что:** `GET /api/v2/points/leaderboard?limit=10&page=1` возвращает корректный ответ со всеми обязательными полями.
+- **Как:** Pydantic-валидация `LeaderboardResponse`. Проверяет: `data` — список, `total >= 0`, `count <= limit`, поля каждого элемента (`userAddress`, `points`).
+- **Зачем:** Базовый контракт эндпоинта. Первая линия защиты от структурных изменений.
+- **Severity:** Normal
+
+#### `test_leaderboard_sorted_by_points_desc` · regression
+- **Что:** Элементы лидерборда отсортированы строго по убыванию поинтов.
+- **Как:** Берёт несколько страниц, проверяет `data[i].points >= data[i+1].points` на каждой странице. Проверяет, что последний элемент предыдущей страницы `>= первому элементу следующей.
+- **Зачем:** Нарушение сортировки — прямая ошибка пользователя (неправильный ранг). Критично для финансового рейтинга.
+- **Severity:** Critical
+
+#### `test_leaderboard_pagination_invariants` · regression
+- **Что:** Пагинация консистентна: `count ≤ limit`, `page ≤ pageCount`, сумма `count` по всем страницам = `total`.
+- **Как:** Итерирует по всем страницам (пока `page <= pageCount`), суммирует `count`, сравнивает с `total`.
+- **Зачем:** Сломанная пагинация означает, что пользователи видят неполный или дублированный список. Баг трудно заметить вручную при большом количестве участников.
+- **Severity:** Normal
+
+#### `test_leaderboard_user_addresses_are_unique` · regression
+- **Что:** Каждый `userAddress` встречается в лидерборде ровно один раз.
+- **Как:** Собирает все адреса со всех страниц, проверяет отсутствие дубликатов.
+- **Зачем:** Дублирующийся адрес означает двойной учёт — неверный ранг участника.
+- **Severity:** Normal
+
+#### `test_leaderboard_addresses_are_valid_ethereum` · regression
+- **Что:** Все `userAddress` — валидные Ethereum-адреса (начинаются с `0x`, длина 42 символа).
+- **Как:** Проходит по всем адресам, проверяет regex `^0x[0-9a-fA-F]{40}$`.
+- **Зачем:** Невалидный адрес означает баг в хранении или обработке данных на бэкенде.
+- **Severity:** Normal
+
+---
+
+### 7.2 Расчёт поинтов — `tests/api/test_points.py`
+
+> Бизнес-логика для проверки описана в `TESTED_PROJECT_CONTEXT.md`, раздел 6.
+>
+> **Конфиг Season 1:** `balanceMultiplier=0.0005`, `seasonMultiplier=5`, `rewardEpochDays=90`, `holderPointMultiplier=0.0001`, `referralMultiplier=0.05`.
+>
+> **Формула поинтов за эпоху (1 час):**
+> `pointsAccrued = (balance_usd × 0.0005 + bonusPoints) × 5`
+
+#### `test_points_portfolio_matches_leaderboard` · smoke
+- **Что:** `portfolio.points` для адреса из лидерборда совпадает с его значением в лидерборде.
+- **Как:** Берёт первые 10 адресов из лидерборда, для каждого запрашивает `/user/portfolio/{address}`, сравнивает `portfolio.points` с `leaderboard.points`.
+- **Зачем:** Два эндпоинта должны показывать одинаковые данные одному пользователю. Расхождение означает рассинхрон данных между сервисами.
+- **Severity:** Critical
+
+#### `test_points_base_rate_calculation` · regression
+- **Что:** Поинты за последние N часов при известном балансе соответствуют формуле `balance × 0.0005 × 5 × N` (без бонуса).
+- **Как:** Использует тестовый кошелёк **Wallet A** (свежий депозит, без холдер-бонуса, без реферала). Берёт историю депозитов → вычисляет ожидаемые поинты → сравнивает с `portfolio.points`.
+- **Зачем:** Проверяет корректность базового начисления — основного механизма расчёта доходности поинтов.
+- **Severity:** Critical
+- **Тестовые данные:** Wallet A — сделать свежий депозит. Записать сумму и время депозита в `.env` или тестовые данные.
+
+#### `test_points_referral_bonus` · regression
+- **Что:** Реферер получает 5% от `pointsAccrued` реферала за каждую эпоху.
+- **Как:** Использует тестовую пару **Wallet B** (реферал) + **Wallet R** (реферер). Вычисляет поинты реферала → 5% → добавляет к базовым поинтам реферера → сравнивает с `portfolio.points` реферера.
+- **Зачем:** Реферальная программа — ключевая функция привлечения. Ошибка в расчёте реферальных бонусов прямо влияет на доход пользователей.
+- **Severity:** Critical
+- **Тестовые данные:** Wallet B зарегистрирован с реферальным кодом Wallet R. Оба с активными депозитами. Время депозитов зафиксировано.
+
+#### `test_holder_bonus_activates_after_90_days` · extended
+- **Что:** Холдер-бонус активируется ровно через 90 дней непрерывного ненулевого баланса (от первой эпохи с ненулевым балансом).
+- **Как:** Использует тестовый кошелёк **Wallet C** (депозит без гэпа до первой эпохи). Через 90 дней + несколько часов проверяет, что `portfolio.points` содержит холдер-бонус, а до 90 дней — нет.
+- **Зачем:** Холдер-бонус — многократный мультипликатор. Если он не активируется или активируется слишком рано — пользователь получает неверное вознаграждение.
+- **Severity:** Critical
+- **Тестовые данные:** Wallet C — сделать депозит в момент первой регистрации в системе (нет гэпа). Зафиксировать время.
+
+#### `test_holder_bonus_fires_once_not_multiple_times` · extended
+- **Что:** Ретроактивный холдер-бонус срабатывает ровно один раз, даже если до первого депозита было N часов нулевого баланса.
+- **Как:** Использует тестовый кошелёк **Wallet D** (сначала зарегистрирован в системе, депозит сделан позже — через N часов). Проверяет поинты после `90 дней + N часов`: должен быть только один ретроактивный бонус.
+- **Зачем:** Документированный потенциальный баг в `getBonusPoints()`: если до первого депозита было N нулевых эпох, Case A может сработать N раз вместо одного. Этот тест верифицирует корректное поведение.
+- **Severity:** Critical
+- **Тестовые данные:** Wallet D — зарегистрировать в системе (например, посетить сайт), подождать N часов, затем сделать депозит. Зафиксировать N и время депозита.
+
+#### `test_holder_ongoing_bonus_uses_min_balance` · extended
+- **Что:** После активации холдер-бонуса каждая эпоха начисляет `minBalance_за_90_дней × 0.0001 × seasonMultiplier`.
+- **Как:** Использует Wallet C с частичным выводом (уменьшил баланс). Вычисляет `minBalance` за последние 90 дней из истории транзакций → ожидаемый бонус → сравнивает с фактическими поинтами.
+- **Зачем:** Частичный вывод должен снижать бонус пропорционально. Полный вывод обнуляет бонус. Ошибка в расчёте minBalance ведёт к завышенному вознаграждению.
+- **Severity:** Critical
+
+---
+
+### 7.3 Тестовые кошельки для Leaderboard & Points
+
+> Создать на PROD ETH. Зафиксировать адреса, суммы и точное время операций — это тестовые данные для расчётов.
+
+| Кошелёк | Назначение | Что сделать |
+|---|---|---|
+| **Wallet A** | Базовая ставка, нет бонусов | Свежий депозит без реферала. Записать время и сумму. |
+| **Wallet B** | Реферал для проверки 5% бонуса | Зарегистрироваться с реферальным кодом Wallet R. Сделать депозит. |
+| **Wallet R** | Реферер Wallet B | Активный депозит. Зафиксировать адрес для сравнения поинтов. |
+| **Wallet C** | Холдер-бонус (нет гэпа) | Депозит сразу при первом появлении в системе. Ждать 90+ дней для `extended`-теста. |
+| **Wallet D** | Баг с множественным срабатыванием | Сначала зарегистрировать (открыть сайт), подождать N часов, затем депозит. Фиксировать N. |
+
+---
+
+## 8. Ограничения
+
+- Все тесты API/UI/TRX запускаются только против DEMO-окружения.
+- Тесты лидерборда и поинтов **всегда** используют PROD ETH (`api.ufarm.digital/api/v2`), независимо от `--env`.
 - UI-тесты не валидируют точные числовые значения доходности — фокус на навигации и консистентности данных.
 - KYT/KYC, термы и полный ончейн-флоу будут детализированы отдельно.
+- Тесты холдер-бонуса (`extended`) требуют ожидания 90 дней — выполняются на специально подготовленных кошельках с известной историей.
 
 ---
 

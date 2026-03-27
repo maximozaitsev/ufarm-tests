@@ -7,6 +7,7 @@ from core.api.models.pool import PoolDetailResponse
 
 @pytest.mark.api
 @pytest.mark.smoke
+@allure.epic("Market")
 @allure.feature("API")
 @allure.story("Pool Detail")
 @allure.title("Pool detail returns correct structure")
@@ -60,6 +61,7 @@ def test_pool_detail_returns_correct_structure(api_client, test_pool_id):
 
 @pytest.mark.api
 @pytest.mark.regression
+@allure.epic("Market")
 @allure.feature("API")
 @allure.story("Pool Detail")
 @allure.title("Pool financials are consistent: valueManaged = totalDeposited + revenue")
@@ -116,6 +118,7 @@ def test_pool_detail_financials_are_consistent(api_client, test_pool_id):
 
 @pytest.mark.api
 @pytest.mark.regression
+@allure.epic("Market")
 @allure.feature("API")
 @allure.story("Pool Detail")
 @allure.title("Pool asset allocations sum to ~100%")

@@ -7,6 +7,7 @@ from core.api.models.portfolio import Portfolio
 
 @pytest.mark.api
 @pytest.mark.smoke
+@allure.epic("Market")
 @allure.feature("API")
 @allure.story("Investor Portfolio")
 @allure.title("Portfolio returns correct structure")
@@ -59,6 +60,7 @@ def test_portfolio_returns_correct_structure(api_client, test_wallet_address):
 
 @pytest.mark.api
 @pytest.mark.regression
+@allure.epic("Market")
 @allure.feature("API")
 @allure.story("Investor Portfolio")
 @allure.title("Portfolio pool balance formula: totalBalance = deposited − withdrawn + realizedPnL + unrealizedPnL")
@@ -105,6 +107,7 @@ def test_portfolio_pool_stats_are_consistent(api_client, test_wallet_address):
 
 @pytest.mark.api
 @pytest.mark.regression
+@allure.epic("Market")
 @allure.feature("API")
 @allure.story("Investor Portfolio")
 @allure.title("Portfolio totals match sum of per-pool stats")

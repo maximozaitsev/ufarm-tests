@@ -173,6 +173,7 @@ tests/
                           #   on-chain deposit 0.5 USDT → паттерн "setup once, assert many":
                           #   фикстура onchain_deposit (scope=module) делает ONE tx,
                           #   3 теста независимо: USDT on-chain −, LP tokens UI +, MY WALLET UI −;
+                          #   gasless withdrawal → "Request submitted" modal (без pending на странице);
 scripts/
   dump_markup.py          # разведка: дампит HTML и PNG страниц (результат в scripts/markup/, gitignored)
 ```

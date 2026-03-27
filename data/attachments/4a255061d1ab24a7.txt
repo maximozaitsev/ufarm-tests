@@ -1,0 +1,5 @@
+
+  Pool: 'REF TEST' (id=f1b36414-7275-497f-abcb-6f19cb9566f4)
+  status=active, type=public, decimals=6
+  poolAddress=0x0Df1FB7d9270aEbC4E91a0c518504121ad6e393D
+  fundAddress=0x232681143B2aC73d8875534F075a4EB63BEEced3

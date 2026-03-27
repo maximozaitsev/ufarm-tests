@@ -51,8 +51,14 @@ SIGNING_TIMEOUT_MS = 30_000
 
 @dataclass
 class OnchainDepositResult:
-    """Состояние до и после on-chain депозита (собирается фикстурой onchain_deposit)."""
+    """Состояние до и после on-chain депозита (собирается фикстурой onchain_deposit).
+
+    Фикстура хранит скриншоты и данные здесь. Каждый тест сам решает
+    что показать в своём body через allure.step / allure.attach.
+    """
     deposit_confirmed_modal_appeared: bool  # UI показал модалку «Deposit confirmed»
+    screenshot_modal: bytes     # скриншот модалки «Deposit confirmed»
+    screenshot_after: bytes     # скриншот страницы пула после обновления UI
     usdt_before: Decimal    # USDT on-chain до депозита
     tokens_before: float    # LP tokens в UI до депозита
     usdt_after: Decimal     # USDT on-chain после депозита
@@ -134,11 +140,6 @@ def onchain_deposit(page_with_trx_wallet, trx_wallet_address) -> OnchainDepositR
     with allure.step("Фиксируем состояние до депозита"):
         usdt_before = get_erc20_balance(trx_wallet_address, USDT_ARB)
         tokens_before = mp.get_pool_balance_tokens()
-        allure.attach(
-            f"USDT on-chain: {usdt_before}\nLP tokens UI: {tokens_before}",
-            name="State before",
-            attachment_type=allure.attachment_type.TEXT,
-        )
 
     # ── Депозит ─────────────────────────────────────────────────────────────
     with allure.step("Открываем модалку Deposit, отключаем gasless"):
@@ -150,7 +151,6 @@ def onchain_deposit(page_with_trx_wallet, trx_wallet_address) -> OnchainDepositR
 
     with allure.step(f"Вводим {DEPOSIT_AMOUNT_ONCHAIN} USDT и отправляем"):
         modal.amount_input().fill(DEPOSIT_AMOUNT_ONCHAIN)
-        allure.attach(page.screenshot(), name="Before submit", attachment_type=allure.attachment_type.PNG)
         modal.submit_button().click()
 
     with allure.step("Ждём модалку «Deposit confirmed» (tx подтверждена on-chain)"):
@@ -158,7 +158,7 @@ def onchain_deposit(page_with_trx_wallet, trx_wallet_address) -> OnchainDepositR
         # tx confirmed on Arbitrum (~0.25s block time) → UI shows success modal.
         page.get_by_text("Deposit confirmed").wait_for(timeout=60_000)
         deposit_confirmed = page.get_by_text("Deposit confirmed").is_visible()
-        allure.attach(page.screenshot(), name="Deposit confirmed modal", attachment_type=allure.attachment_type.PNG)
+        screenshot_modal = page.screenshot()
 
     with allure.step("Закрываем модалку, ждём обновления UI"):
         page.get_by_role("button", name="CLOSE").click()
@@ -170,18 +170,12 @@ def onchain_deposit(page_with_trx_wallet, trx_wallet_address) -> OnchainDepositR
         tokens_after = mp.get_pool_balance_tokens()
         pool_usd_after = mp.get_pool_balance_usd()
         wallet_usd_after = mp.get_wallet_balance_usd()
-        allure.attach(
-            f"USDT on-chain: {usdt_before} → {usdt_after}\n"
-            f"LP tokens UI: {tokens_before} → {tokens_after}\n"
-            f"Pool USD UI: {pool_usd_after}\n"
-            f"Wallet USD UI: {wallet_usd_after}",
-            name="State after",
-            attachment_type=allure.attachment_type.TEXT,
-        )
-        allure.attach(page.screenshot(), name="Pool page after deposit", attachment_type=allure.attachment_type.PNG)
+        screenshot_after = page.screenshot()
 
     return OnchainDepositResult(
         deposit_confirmed_modal_appeared=deposit_confirmed,
+        screenshot_modal=screenshot_modal,
+        screenshot_after=screenshot_after,
         usdt_before=usdt_before,
         tokens_before=tokens_before,
         usdt_after=usdt_after,
@@ -272,9 +266,15 @@ def test_gasless_deposit_pending_approval(page_with_trx_wallet):
 @allure.severity(allure.severity_level.CRITICAL)
 def test_onchain_deposit_confirmed_modal(onchain_deposit: OnchainDepositResult):
     """UI показал модалку «Deposit confirmed» после подтверждения tx on-chain."""
-    assert onchain_deposit.deposit_confirmed_modal_appeared, (
-        "Модалка «Deposit confirmed» не появилась"
-    )
+    with allure.step("Модалка «Deposit confirmed» появилась"):
+        allure.attach(
+            onchain_deposit.screenshot_modal,
+            name="Deposit confirmed modal",
+            attachment_type=allure.attachment_type.PNG,
+        )
+        assert onchain_deposit.deposit_confirmed_modal_appeared, (
+            "Модалка «Deposit confirmed» не появилась"
+        )
 
 
 @allure.epic("Market")
@@ -285,10 +285,11 @@ def test_onchain_deposit_confirmed_modal(onchain_deposit: OnchainDepositResult):
 def test_onchain_deposit_usdt_decreased(onchain_deposit: OnchainDepositResult):
     """On-chain депозит подтверждён: USDT on-chain уменьшился на ~0.5 USDT."""
     d = onchain_deposit
-    assert d.usdt_after < d.usdt_before - Decimal("0.4"), (
-        f"USDT on-chain должен уменьшиться примерно на {DEPOSIT_AMOUNT_ONCHAIN}: "
-        f"{d.usdt_before} → {d.usdt_after}"
-    )
+    with allure.step(f"USDT on-chain: {d.usdt_before} → {d.usdt_after}"):
+        assert d.usdt_after < d.usdt_before - Decimal("0.4"), (
+            f"USDT on-chain должен уменьшиться примерно на {DEPOSIT_AMOUNT_ONCHAIN}: "
+            f"{d.usdt_before} → {d.usdt_after}"
+        )
 
 
 @allure.epic("Market")
@@ -299,9 +300,15 @@ def test_onchain_deposit_usdt_decreased(onchain_deposit: OnchainDepositResult):
 def test_onchain_deposit_lp_tokens_increased(onchain_deposit: OnchainDepositResult):
     """После on-chain депозита LP-токены в секции MY BALANCE выросли."""
     d = onchain_deposit
-    assert d.tokens_after > d.tokens_before, (
-        f"LP tokens не выросли: {d.tokens_before} → {d.tokens_after}"
-    )
+    with allure.step(f"LP tokens в UI: {d.tokens_before} → {d.tokens_after}"):
+        allure.attach(
+            onchain_deposit.screenshot_after,
+            name="Pool page after deposit",
+            attachment_type=allure.attachment_type.PNG,
+        )
+        assert d.tokens_after > d.tokens_before, (
+            f"LP tokens не выросли: {d.tokens_before} → {d.tokens_after}"
+        )
 
 
 @allure.epic("Market")
@@ -312,9 +319,15 @@ def test_onchain_deposit_lp_tokens_increased(onchain_deposit: OnchainDepositResu
 def test_onchain_deposit_wallet_ui_decreased(onchain_deposit: OnchainDepositResult):
     """После on-chain депозита баланс в секции MY WALLET (UI) уменьшился."""
     d = onchain_deposit
-    # Сравниваем UI-баланс после с on-chain балансом до — это наш reference point,
-    # т.к. UI wallet balance до депозита мог не загрузиться (async).
-    assert d.wallet_usd_after < d.usdt_before - Decimal("0.4"), (
-        f"MY WALLET (UI) должен быть меньше on-chain до ({d.usdt_before}) на ~{DEPOSIT_AMOUNT_ONCHAIN}: "
-        f"got {d.wallet_usd_after}"
-    )
+    with allure.step(f"MY WALLET (UI): {d.wallet_usd_after} (было ~{d.usdt_before} on-chain)"):
+        allure.attach(
+            onchain_deposit.screenshot_after,
+            name="Pool page after deposit",
+            attachment_type=allure.attachment_type.PNG,
+        )
+        # Сравниваем с on-chain балансом до — reference point,
+        # т.к. UI wallet balance до депозита мог не загрузиться (async).
+        assert d.wallet_usd_after < d.usdt_before - Decimal("0.4"), (
+            f"MY WALLET (UI) должен быть меньше on-chain до ({d.usdt_before}) на ~{DEPOSIT_AMOUNT_ONCHAIN}: "
+            f"got {d.wallet_usd_after}"
+        )

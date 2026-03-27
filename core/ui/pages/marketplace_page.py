@@ -1,3 +1,4 @@
+import re
 from decimal import Decimal
 
 from core.ui.base_page import BasePage
@@ -83,6 +84,32 @@ class MarketplacePage(BasePage):
     def history_tabs(self):
         """ARIA-табы истории на странице пула (Transactions, actions и др.)."""
         return self.page.get_by_role("tab")
+
+    def my_history_tab(self):
+        """Таб «My history» в секции истории на странице пула.
+
+        DOM: <button role="tab"><span class="mantine-Tabs-tabLabel">My history</span></button>
+        CSS делает текст uppercase визуально; DOM-текст — «My history».
+        Используем case-insensitive фильтр чтобы не зависеть от регистра.
+        """
+        return self.page.get_by_role("tab").filter(
+            has_text=re.compile(r"my history", re.IGNORECASE)
+        )
+
+    def history_table_rows(self):
+        """Строки таблицы истории транзакций (видимые после выбора таба).
+
+        Таблица рендерится под табами — строки содержат тип (Deposit/Withdrawal),
+        дату, количество токенов, сумму и адрес.
+        Исключаем заголовочную строку через filter(has_not=columnheader).
+        """
+        return self.page.get_by_role("row").filter(has_not=self.page.get_by_role("columnheader"))
+
+    def wait_for_history_row_with_text(self, text: str, timeout: int = 15_000):
+        """Ждёт появления строки в таблице истории, содержащей заданный текст."""
+        self.page.get_by_role("row").filter(has_text=text).first.wait_for(
+            state="visible", timeout=timeout
+        )
 
     # ── Pool page — action buttons (with wallet connected) ───────────────────
     # Кнопки — div-элементы (не ARIA button), поэтому get_by_text.

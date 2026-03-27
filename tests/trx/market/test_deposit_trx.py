@@ -28,6 +28,7 @@ from decimal import Decimal
 import allure
 import pytest
 
+from core.api.models.cashflow import CashflowResponse
 from core.ui.pages.deposit_modal import DepositModal
 from core.ui.pages.marketplace_page import MarketplacePage
 
@@ -200,3 +201,97 @@ def test_onchain_deposit_wallet_ui_decreased(onchain_deposit: OnchainDepositResu
             f"MY WALLET (UI) ожидается ~{expected} "
             f"({d.usdt_before} − {DEPOSIT_AMOUNT_ONCHAIN}), got {d.wallet_usd_after}"
         )
+
+
+# ── On-chain deposit: API cashflow + UI history tab ───────────────────────────
+
+
+@allure.epic("Market")
+@allure.feature("Transaction")
+@allure.story("Deposit")
+@allure.title("On-chain deposit: entry appears in API cashflow (Completed)")
+@allure.severity(allure.severity_level.CRITICAL)
+def test_onchain_deposit_appears_in_api_cashflow(
+    onchain_deposit: OnchainDepositResult,
+    api_client,
+    test_pool_id,
+    trx_wallet_address,
+):
+    """On-chain депозит зафиксирован в API cashflow: запись со статусом Completed.
+
+    Получаем on-chain адрес пула через GET /pool/{pool_id}, затем запрашиваем
+    GET /pool/{poolAddress}/transactions/cashflows?investorAddress=...&type=Deposit.
+
+    Примечание: для on-chain депозитов requestHash == null (транзакция уходит напрямую
+    на блокчейн, минуя relay). Поэтому идентифицируем запись как самую свежую —
+    записи отсортированы по убыванию даты, наш депозит был только что.
+    """
+    d = onchain_deposit
+    attach_tx_link(d.tx_hash)
+
+    with allure.step(f"Получаем on-chain адрес пула для pool_id={test_pool_id}"):
+        pool_resp = api_client.get(f"/pool/{test_pool_id}")
+        assert pool_resp.status_code == 200, f"GET /pool/{test_pool_id} вернул {pool_resp.status_code}"
+        pool_address = pool_resp.json()["pool"]["poolAddress"]
+
+    with allure.step("Получаем последние Deposit-записи из cashflow (page 1)"):
+        # On-chain депозиты не имеют requestHash в API — запись создаётся по blockNumber.
+        # Используем most-recent запись: записи отсортированы по убыванию даты,
+        # наш депозит был только что — он должен быть первым в списке.
+        cf_resp = api_client.get(
+            f"/pool/{pool_address}/transactions/cashflows",
+            params={
+                "investorAddress": trx_wallet_address,
+                "type": "Deposit",
+                "limit": 5,
+                "page": 1,
+            },
+        )
+        assert cf_resp.status_code == 200, f"GET cashflows вернул {cf_resp.status_code}"
+        body = cf_resp.json()
+        allure.attach(
+            str(body),
+            name="Cashflow API response",
+            attachment_type=allure.attachment_type.TEXT,
+        )
+        cf = CashflowResponse(**body)
+        assert cf.data, "Cashflow вернул пустой список — ни одного Deposit не найдено"
+
+    latest = cf.data[0]
+    with allure.step(f"Последняя Deposit-запись: type={latest.type}, status={latest.status}, date={latest.date}"):
+        assert latest.type == "Deposit", f"Ожидается type=Deposit, got {latest.type}"
+        assert latest.status == "Completed", f"Ожидается status=Completed, got {latest.status}"
+
+
+@allure.epic("Market")
+@allure.feature("Transaction")
+@allure.story("Deposit")
+@allure.title("On-chain deposit: entry visible in UI «MY HISTORY» tab")
+@allure.severity(allure.severity_level.NORMAL)
+def test_onchain_deposit_appears_in_ui_my_history(
+    onchain_deposit: OnchainDepositResult,
+    page_with_trx_wallet,
+):
+    """On-chain депозит отображается в таблице «MY HISTORY» на странице пула."""
+    d = onchain_deposit
+    attach_tx_link(d.tx_hash)
+    page = page_with_trx_wallet
+    mp = MarketplacePage(page)
+
+    with allure.step("Скроллим к табам истории и нажимаем «My history»"):
+        tab = mp.my_history_tab()
+        tab.wait_for(state="visible", timeout=10_000)
+        tab.scroll_into_view_if_needed()
+        tab.click()
+
+    with allure.step("Ждём строку с типом «Deposit» в таблице истории"):
+        mp.wait_for_history_row_with_text("Deposit")
+        allure.attach(
+            page.screenshot(),
+            name="MY HISTORY tab with deposit row",
+            attachment_type=allure.attachment_type.PNG,
+        )
+
+    with allure.step("Строка с «Deposit» видна в таблице"):
+        rows = mp.history_table_rows().filter(has_text="Deposit")
+        assert rows.count() > 0, "Строка «Deposit» не найдена в таблице MY HISTORY"

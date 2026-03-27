@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from core.ui.base_page import BasePage
 
 
@@ -127,3 +129,102 @@ class MarketplacePage(BasePage):
         id="connectWallet" — стабильный атрибут, не зависит от CSS-модульных хэшей.
         """
         return self.page.locator("#connectWallet")
+
+    # ── Pool page — MY BALANCE (позиция в пуле) ───────────────────────────────
+    # HTML:
+    #   <div class="..._usdt_..."><p>$</p>2</div>     ← USD-стоимость позиции
+    #   <p class="..._tokens_...">2,01 tokens</p>      ← количество LP-токенов
+    #
+    # Используем [class*=_usdt_] и [class*=_tokens_] — семантические префиксы
+    # в CSS-модульных классах (аналогично portfolio_page.py).
+
+    def get_pool_balance_usd(self) -> Decimal:
+        """USD-стоимость позиции в пуле (секция MY BALANCE).
+
+        HTML: <div class="..._usdt_..."><p>$</p>2</div>
+        Число — text-узел после тега <p>$</p>, скопированное из childNodes.
+        Scope: ищем от heading «MY BALANCE» вверх по DOM.
+        """
+        value = self.page.evaluate("""() => {
+            const heading = [...document.querySelectorAll('*')]
+                .find(el => el.childElementCount === 0 && el.textContent.trim() === 'MY BALANCE');
+            if (!heading) return '';
+            let node = heading.parentElement;
+            for (let i = 0; i < 6; i++) {
+                if (!node) break;
+                const div = node.querySelector('[class*=_usdt_]');
+                if (div) {
+                    return [...div.childNodes]
+                        .filter(n => n.nodeType === 3)
+                        .map(n => n.textContent.trim())
+                        .filter(Boolean)
+                        .join('');
+                }
+                node = node.parentElement;
+            }
+            return '';
+        }""")
+        return Decimal(value.replace(",", ".")) if value else Decimal("0")
+
+    def get_pool_balance_tokens(self) -> float:
+        """Количество LP-токенов в пуле (секция MY BALANCE).
+
+        HTML: <p class="..._tokens_...">2,01 tokens</p>
+        Возвращает float, например 2.01. Запятая — десятичный разделитель (EU).
+        """
+        text = self.page.evaluate("""() => {
+            const p = document.querySelector('[class*=_tokens_]');
+            return p ? p.textContent.trim() : null;
+        }""")
+        if not text:
+            return 0.0
+        return float(text.split()[0].replace(",", "."))
+
+    def wait_for_pool_tokens_above(self, threshold: float, timeout: int = 30_000):
+        """Ждёт пока LP-токены в UI станут строго больше threshold.
+
+        Используется после on-chain депозита — баланс обновляется асинхронно
+        после подтверждения tx и перерисовки UI.
+        """
+        self.page.wait_for_function(
+            f"""() => {{
+                const p = document.querySelector('[class*=_tokens_]');
+                if (!p) return false;
+                const num = parseFloat(p.textContent.trim().split(' ')[0].replace(',', '.'));
+                return num > {threshold};
+            }}""",
+            timeout=timeout,
+        )
+
+    # ── Pool page — MY WALLET (баланс кошелька) ───────────────────────────────
+    # HTML:
+    #   <div class="..._row_..."><p>$</p>2,99</div>   ← USDT в кошельке
+    #
+    # Scope: ищем от heading «MY WALLET» — иначе _row_ слишком общий класс.
+
+    def get_wallet_balance_usd(self) -> Decimal:
+        """USDT-баланс кошелька на странице пула (секция MY WALLET).
+
+        HTML: <div class="..._row_..."><p>$</p>2,99</div>
+        Scope: ищем от heading «MY WALLET» вверх по DOM.
+        """
+        value = self.page.evaluate("""() => {
+            const heading = [...document.querySelectorAll('*')]
+                .find(el => el.childElementCount === 0 && el.textContent.trim() === 'MY WALLET');
+            if (!heading) return '';
+            let node = heading.parentElement;
+            for (let i = 0; i < 6; i++) {
+                if (!node) break;
+                const div = node.querySelector('[class*=_row_]');
+                if (div) {
+                    return [...div.childNodes]
+                        .filter(n => n.nodeType === 3)
+                        .map(n => n.textContent.trim())
+                        .filter(Boolean)
+                        .join('');
+                }
+                node = node.parentElement;
+            }
+            return '';
+        }""")
+        return Decimal(value.replace(",", ".")) if value else Decimal("0")

@@ -13,14 +13,24 @@
     и отправляет raw tx напрямую на Arbitrum. Требует ETH для газа.
     LP-баланс растёт сразу после подтверждения транзакции.
 
+On-chain тесты: паттерн "setup once, assert many"
+  Фикстура onchain_deposit (scope=module) выполняет ONE транзакцию и собирает
+  состояние до/после. Каждый тест проверяет один аспект результата независимо.
+  Если упадёт тест баланса UI — тест факта транзакции остаётся зелёным.
+  Если упадёт сама фикстура (tx не прошла) — все зависимые тесты → ERROR.
+
 Изоляция:
   - Wallet отдельный от всех остальных тестов — конфликтов нет.
 """
+
+from dataclasses import dataclass
+from decimal import Decimal
 
 import allure
 import pytest
 
 from core.ui.helpers.mocks import mock_auth_connect
+from core.ui.helpers.on_chain import USDT_ARB, get_erc20_balance
 from core.ui.helpers.trx_provider import inject_trx_provider
 from core.ui.pages.deposit_modal import DepositModal
 from core.ui.pages.marketplace_page import MarketplacePage
@@ -28,11 +38,27 @@ from core.ui.pages.marketplace_page import MarketplacePage
 
 pytestmark = [pytest.mark.trx, pytest.mark.smoke]
 
-DEPOSIT_AMOUNT = "1"  # 1 USDT
+DEPOSIT_AMOUNT = "1"        # 1 USDT gasless
+DEPOSIT_AMOUNT_ONCHAIN = "0.5"  # 0.5 USDT on-chain (direct, with gas)
 
 # Сколько мс ждать появления "Request submitted" после клика submit.
 # Gasless flow: submit → 2x EIP-712 signing → relay → success modal.
 SIGNING_TIMEOUT_MS = 30_000
+
+
+# ── Dataclass для результата on-chain депозита ─────────────────────────────────
+
+
+@dataclass
+class OnchainDepositResult:
+    """Состояние до и после on-chain депозита (собирается фикстурой onchain_deposit)."""
+    deposit_confirmed_modal_appeared: bool  # UI показал модалку «Deposit confirmed»
+    usdt_before: Decimal    # USDT on-chain до депозита
+    tokens_before: float    # LP tokens в UI до депозита
+    usdt_after: Decimal     # USDT on-chain после депозита
+    tokens_after: float     # LP tokens в UI после депозита
+    pool_usd_after: Decimal     # MY BALANCE USD в UI после депозита
+    wallet_usd_after: Decimal   # MY WALLET USD в UI после депозита
 
 
 # ── Фикстуры ──────────────────────────────────────────────────────────────────
@@ -87,6 +113,82 @@ def page_with_trx_wallet(
 
     yield page
     context.close()
+
+
+@pytest.fixture(scope="module")
+def onchain_deposit(page_with_trx_wallet, trx_wallet_address) -> OnchainDepositResult:
+    """Выполняет on-chain депозит 0.5 USDT и возвращает состояние до/после.
+
+    Запускается ОДИН РАЗ на весь модуль. Все зависимые тесты получают
+    один и тот же объект OnchainDepositResult — транзакция не повторяется.
+
+    Если фикстура упадёт (tx не прошла, модалка не появилась) — все зависимые
+    тесты будут помечены как ERROR, что сигнализирует о сбое транзакции,
+    а не о сбое отдельной проверки.
+    """
+    page = page_with_trx_wallet
+    mp = MarketplacePage(page)
+    modal = DepositModal(page)
+
+    # ── До депозита ─────────────────────────────────────────────────────────
+    with allure.step("Фиксируем состояние до депозита"):
+        usdt_before = get_erc20_balance(trx_wallet_address, USDT_ARB)
+        tokens_before = mp.get_pool_balance_tokens()
+        allure.attach(
+            f"USDT on-chain: {usdt_before}\nLP tokens UI: {tokens_before}",
+            name="State before",
+            attachment_type=allure.attachment_type.TEXT,
+        )
+
+    # ── Депозит ─────────────────────────────────────────────────────────────
+    with allure.step("Открываем модалку Deposit, отключаем gasless"):
+        page.locator(".mantine-Modal-overlay").wait_for(state="hidden", timeout=5_000)
+        mp.deposit_button().click()
+        modal.wait_for()
+        modal.gasless_toggle().evaluate("el => el.click()")
+        assert not modal.gasless_toggle().is_checked(), "Gasless toggle должен быть выключен"
+
+    with allure.step(f"Вводим {DEPOSIT_AMOUNT_ONCHAIN} USDT и отправляем"):
+        modal.amount_input().fill(DEPOSIT_AMOUNT_ONCHAIN)
+        allure.attach(page.screenshot(), name="Before submit", attachment_type=allure.attachment_type.PNG)
+        modal.submit_button().click()
+
+    with allure.step("Ждём модалку «Deposit confirmed» (tx подтверждена on-chain)"):
+        # On-chain flow: submit → eth_sendTransaction → Python signs + broadcasts →
+        # tx confirmed on Arbitrum (~0.25s block time) → UI shows success modal.
+        page.get_by_text("Deposit confirmed").wait_for(timeout=60_000)
+        deposit_confirmed = page.get_by_text("Deposit confirmed").is_visible()
+        allure.attach(page.screenshot(), name="Deposit confirmed modal", attachment_type=allure.attachment_type.PNG)
+
+    with allure.step("Закрываем модалку, ждём обновления UI"):
+        page.get_by_role("button", name="CLOSE").click()
+        mp.wait_for_pool_tokens_above(tokens_before)
+
+    # ── После депозита ───────────────────────────────────────────────────────
+    with allure.step("Читаем состояние после депозита"):
+        usdt_after = get_erc20_balance(trx_wallet_address, USDT_ARB)
+        tokens_after = mp.get_pool_balance_tokens()
+        pool_usd_after = mp.get_pool_balance_usd()
+        wallet_usd_after = mp.get_wallet_balance_usd()
+        allure.attach(
+            f"USDT on-chain: {usdt_before} → {usdt_after}\n"
+            f"LP tokens UI: {tokens_before} → {tokens_after}\n"
+            f"Pool USD UI: {pool_usd_after}\n"
+            f"Wallet USD UI: {wallet_usd_after}",
+            name="State after",
+            attachment_type=allure.attachment_type.TEXT,
+        )
+        allure.attach(page.screenshot(), name="Pool page after deposit", attachment_type=allure.attachment_type.PNG)
+
+    return OnchainDepositResult(
+        deposit_confirmed_modal_appeared=deposit_confirmed,
+        usdt_before=usdt_before,
+        tokens_before=tokens_before,
+        usdt_after=usdt_after,
+        tokens_after=tokens_after,
+        pool_usd_after=pool_usd_after,
+        wallet_usd_after=wallet_usd_after,
+    )
 
 
 # ── Тесты ─────────────────────────────────────────────────────────────────────
@@ -156,3 +258,63 @@ def test_gasless_deposit_pending_approval(page_with_trx_wallet):
             attachment_type=allure.attachment_type.PNG,
         )
         assert pending.is_visible()
+
+
+# ── On-chain deposit: setup once, assert many ─────────────────────────────────
+# Все тесты ниже зависят от фикстуры onchain_deposit (scope=module).
+# Транзакция выполняется ОДИН РАЗ. Каждый тест проверяет один аспект независимо.
+
+
+@allure.epic("Market")
+@allure.feature("Transaction")
+@allure.story("Deposit")
+@allure.title("On-chain deposit: UI shows «Deposit confirmed» modal")
+@allure.severity(allure.severity_level.CRITICAL)
+def test_onchain_deposit_confirmed_modal(onchain_deposit: OnchainDepositResult):
+    """UI показал модалку «Deposit confirmed» после подтверждения tx on-chain."""
+    assert onchain_deposit.deposit_confirmed_modal_appeared, (
+        "Модалка «Deposit confirmed» не появилась"
+    )
+
+
+@allure.epic("Market")
+@allure.feature("Transaction")
+@allure.story("Deposit")
+@allure.title("On-chain deposit: tx confirmed on-chain (USDT decreased)")
+@allure.severity(allure.severity_level.CRITICAL)
+def test_onchain_deposit_usdt_decreased(onchain_deposit: OnchainDepositResult):
+    """On-chain депозит подтверждён: USDT on-chain уменьшился на ~0.5 USDT."""
+    d = onchain_deposit
+    assert d.usdt_after < d.usdt_before - Decimal("0.4"), (
+        f"USDT on-chain должен уменьшиться примерно на {DEPOSIT_AMOUNT_ONCHAIN}: "
+        f"{d.usdt_before} → {d.usdt_after}"
+    )
+
+
+@allure.epic("Market")
+@allure.feature("Transaction")
+@allure.story("Deposit")
+@allure.title("On-chain deposit: LP tokens in UI increased")
+@allure.severity(allure.severity_level.NORMAL)
+def test_onchain_deposit_lp_tokens_increased(onchain_deposit: OnchainDepositResult):
+    """После on-chain депозита LP-токены в секции MY BALANCE выросли."""
+    d = onchain_deposit
+    assert d.tokens_after > d.tokens_before, (
+        f"LP tokens не выросли: {d.tokens_before} → {d.tokens_after}"
+    )
+
+
+@allure.epic("Market")
+@allure.feature("Transaction")
+@allure.story("Deposit")
+@allure.title("On-chain deposit: MY WALLET USD in UI decreased")
+@allure.severity(allure.severity_level.NORMAL)
+def test_onchain_deposit_wallet_ui_decreased(onchain_deposit: OnchainDepositResult):
+    """После on-chain депозита баланс в секции MY WALLET (UI) уменьшился."""
+    d = onchain_deposit
+    # Сравниваем UI-баланс после с on-chain балансом до — это наш reference point,
+    # т.к. UI wallet balance до депозита мог не загрузиться (async).
+    assert d.wallet_usd_after < d.usdt_before - Decimal("0.4"), (
+        f"MY WALLET (UI) должен быть меньше on-chain до ({d.usdt_before}) на ~{DEPOSIT_AMOUNT_ONCHAIN}: "
+        f"got {d.wallet_usd_after}"
+    )

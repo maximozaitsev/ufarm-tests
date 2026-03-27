@@ -94,7 +94,11 @@ core/
                           #   поддерживает eth_sendTransaction, personal_sign, eth_signTypedData_v4;
                           #   get_erc20_balance_raw(), wait_for_tx()
     pages/
-      marketplace_page.py # MarketplacePage: пул-карточки, хедер, кнопки Deposit/Withdraw
+      marketplace_page.py # MarketplacePage: пул-карточки, хедер, кнопки Deposit/Withdraw;
+                          #   pool page MY BALANCE: get_pool_balance_usd() → Decimal,
+                          #   get_pool_balance_tokens() → float ([class*=_tokens_]),
+                          #   wait_for_pool_tokens_above(threshold) — ждёт LP > threshold;
+                          #   pool page MY WALLET: get_wallet_balance_usd() → Decimal ([class*=_row_])
       deposit_modal.py    # DepositModal: инпут, MAX, gasless toggle, submit (#poolDepositConfirm),
                           #   token_selector() → [class*='current'], token_selector_arrow(),
                           #   current_token_ticker() → парсит [class*='balance'] p,
@@ -166,6 +170,9 @@ tests/
     market/
       test_deposit_trx.py # smoke: gasless deposit 1 USDT → "Request submitted" modal +
                           #   "pending approval" на странице пула;
+                          #   on-chain deposit 0.5 USDT → паттерн "setup once, assert many":
+                          #   фикстура onchain_deposit (scope=module) делает ONE tx,
+                          #   3 теста независимо: USDT on-chain −, LP tokens UI +, MY WALLET UI −;
 scripts/
   dump_markup.py          # разведка: дампит HTML и PNG страниц (результат в scripts/markup/, gitignored)
 ```
@@ -336,4 +343,4 @@ context.close()  # ← закрывает и страницу, и контекс
 - [x] Шаг 3.7: UI-тесты модалки кошелька (Wallet Menu Modal) — адрес/балансы, fund wallet flow, buy crypto + Unlimit widget, receive funds + clipboard, send form validation
 - [x] Шаг 3.8: UI-тесты страницы My Portfolio — cross-verified: on-chain Σ(LP×tokenPrice) = API = UI; структура Overview; UF-POINTS; сортировка карточек
 - [x] Шаг 4: TRX-тесты gasless deposit — inject_trx_provider, EIP-712 signing, "Request submitted" modal
-- [ ] Шаг 5: TRX-тесты on-chain deposit (прямой, с газом) — LP-баланс растёт сразу после tx
+- [x] Шаг 5: TRX-тесты on-chain deposit (прямой, с газом) — "Deposit confirmed" modal, LP tokens в UI растут, USDT on-chain уменьшается

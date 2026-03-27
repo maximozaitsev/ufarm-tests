@@ -16,8 +16,8 @@ import allure
 import pytest
 import requests
 
-from core.ui.mocks import mock_auth_connect
-from core.ui.on_chain import get_erc20_balance, ARB_MAINNET_RPC
+from core.ui.helpers.mocks import mock_auth_connect
+from core.ui.helpers.on_chain import get_erc20_balance, ARB_MAINNET_RPC
 from core.ui.pages.marketplace_page import MarketplacePage
 from core.ui.pages.portfolio_page import PortfolioPage
 
@@ -35,7 +35,7 @@ def page_on_portfolio(browser, base_url, wallet_active):
     module-scope: загружается один раз на все тесты файла.
     Использует SPA-навигацию (клик по табу) — page.goto после inject сбросил бы wagmi state.
     """
-    from core.ui.wallet_injection import inject_wallet
+    from core.ui.helpers.wallet_injection import inject_wallet
 
     context = browser.new_context()
     page = context.new_page()

@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     # Подходит для: проверок структуры портфолио, истории транзакций, реалтайм-данных.
     # Не подходит для: проверок конкретных сумм и стабильных балансов.
     wallet_active: str = "0x2AB1aB42a102735B79DB03ff5fBBfA4fd63C414D"
+    # Кошелёк для транзакционных тестов — реально подписывает и отправляет tx.
+    # Приватный ключ хранить ТОЛЬКО в GitHub Secrets, не в .env!
+    wallet_trx_address: str = ""
+    wallet_trx_private_key: str = ""
 
     model_config = SettingsConfigDict(env_file=".env")
 

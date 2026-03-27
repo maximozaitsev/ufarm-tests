@@ -16,8 +16,8 @@ import allure
 import pytest
 import requests
 
-from core.ui.mocks import mock_auth_connect
-from core.ui.on_chain import get_erc20_balance, USDT_ARB, USDC_ARB, ARB_MAINNET_RPC
+from core.ui.helpers.mocks import mock_auth_connect
+from core.ui.helpers.on_chain import get_erc20_balance, USDT_ARB, USDC_ARB, ARB_MAINNET_RPC
 from core.ui.pages.marketplace_page import MarketplacePage
 from core.ui.pages.wallet_menu_modal import WalletMenuModal
 
@@ -35,7 +35,7 @@ def page_with_wallet_clipboard(browser, base_url, test_wallet_address):
     Отдельная фикстура от page_with_wallet — clipboard-read/write permissions
     нельзя добавить после создания контекста.
     """
-    from core.ui.wallet_injection import inject_wallet
+    from core.ui.helpers.wallet_injection import inject_wallet
 
     context = browser.new_context(
         permissions=["clipboard-read", "clipboard-write"]

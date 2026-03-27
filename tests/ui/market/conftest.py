@@ -49,7 +49,7 @@ def pool_info_min_deposit(api_client, pool_min_deposit_id):
 @pytest.fixture(scope="session")
 def wallet_usdt_balance(test_wallet_address) -> Decimal:
     """On-chain USDT баланс WALLET_WITH_BALANCE на Arbitrum."""
-    from core.ui.on_chain import get_erc20_balance, USDT_ARB
+    from core.ui.helpers.on_chain import get_erc20_balance, USDT_ARB
     return get_erc20_balance(test_wallet_address, USDT_ARB)
 
 
@@ -76,9 +76,9 @@ def page_with_whale_wallet_on_min_deposit_pool(browser, base_url, pool_min_depos
 
     При старте проверяет что баланс кошелька >= 5000 USDT, иначе тест скипается.
     """
-    from core.ui.on_chain import get_erc20_balance, USDT_ARB
-    from core.ui.wallet_injection import inject_wallet
-    from core.ui.mocks import mock_auth_connect
+    from core.ui.helpers.on_chain import get_erc20_balance, USDT_ARB
+    from core.ui.helpers.wallet_injection import inject_wallet
+    from core.ui.helpers.mocks import mock_auth_connect
 
     whale_balance = get_erc20_balance(_WHALE_WALLET, USDT_ARB)
     if whale_balance < 5000:

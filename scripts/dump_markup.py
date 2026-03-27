@@ -13,7 +13,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 
 from playwright.sync_api import sync_playwright
 
-from core.ui.wallet_injection import inject_wallet
+from core.ui.helpers.wallet_injection import inject_wallet
 
 BASE_URL = os.environ.get("BASE_URL", "https://app.demo.ufarm.digital")
 

@@ -27,7 +27,7 @@ def page_with_new_user_on_pool(browser, base_url, test_pool_id, test_wallet_addr
     user/verification возвращает 404 → верификация не пройдена.
     Используется только для теста что Terms модалка появляется.
     """
-    from core.ui.wallet_injection import inject_wallet
+    from core.ui.helpers.wallet_injection import inject_wallet
 
     def _mock_new_user(page):
         def _auth(route, _):
@@ -648,7 +648,7 @@ def test_deposit_modal_gasless_locked_when_no_eth(
       - задизейблен (disabled) — нельзя переключить на обычную транзакцию
       - кнопка Request Deposit при этом активна (депозит без газа доступен).
     """
-    from core.ui.on_chain import get_erc20_balance, USDT_ARB
+    from core.ui.helpers.on_chain import get_erc20_balance, USDT_ARB
 
     page = page_with_no_eth_wallet_on_single_token_pool
     mp = MarketplacePage(page)

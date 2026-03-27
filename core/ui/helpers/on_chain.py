@@ -30,7 +30,7 @@ def get_erc20_balance(
 
     Пример::
 
-        from core.ui.on_chain import get_erc20_balance, USDT_ARB
+        from core.ui.helpers.on_chain import get_erc20_balance, USDT_ARB
         balance = get_erc20_balance("0xabc...", USDT_ARB)
         # Decimal("2.027758")
     """

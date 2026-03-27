@@ -33,10 +33,14 @@ pytest tests/api/ -v
 # только UI
 pytest tests/ui/ -v
 
+# только TRX (реальные on-chain транзакции)
+pytest tests/trx/ -v
+
 # по маркам
 pytest -m "api and smoke"
 pytest -m "api and regression"
 pytest -m "ui and smoke"
+pytest -m "trx and smoke"
 
 # с выводом print()
 pytest tests/api/ -v -s
@@ -44,6 +48,7 @@ pytest tests/api/ -v -s
 # с генерацией Allure-результатов (--clean-alluredir очищает старые результаты)
 pytest tests/api/ -v --alluredir=allure-results --clean-alluredir
 pytest tests/ui/ -v --alluredir=allure-results --clean-alluredir
+pytest tests/trx/ -v --alluredir=allure-results --clean-alluredir
 
 # просмотр Allure-отчёта локально
 allure serve allure-results
@@ -80,8 +85,14 @@ core/
       leaderboard.py      # LeaderboardItem, LeaderboardResponse
   ui/
     base_page.py
-    wallet_injection.py   # inject_wallet(): React Fiber → wagmi store → connected state без модалки
-    on_chain.py           # get_erc20_balance(): on-chain USDT/USDC баланс через JSON-RPC
+    helpers/              # вспомогательные утилиты (не page objects)
+      mocks.py            # mock_auth_connect(): мок /auth/connect + /user/verification
+      on_chain.py         # get_erc20_balance(): on-chain USDT/USDC баланс через JSON-RPC
+      wallet_injection.py # inject_wallet(): React Fiber → wagmi store → connected state без модалки
+      trx_provider.py     # inject_trx_provider(): EIP-1193 провайдер для подписи tx в браузере;
+                          #   перехватывает publicnode.com RPC (page.route), сохраняет JSON-RPC id;
+                          #   поддерживает eth_sendTransaction, personal_sign, eth_signTypedData_v4;
+                          #   get_erc20_balance_raw(), wait_for_tx()
     pages/
       marketplace_page.py # MarketplacePage: пул-карточки, хедер, кнопки Deposit/Withdraw
       deposit_modal.py    # DepositModal: инпут, MAX, gasless toggle, submit (#poolDepositConfirm),
@@ -149,6 +160,12 @@ tests/
                           #   portfolio_onchain_breakdown — разбивка on-chain по пулам (session fixture)
                           #   portfolio.wait_for() ждёт ненулевого MY INVESTMENTS (async API load)
     fund/                 # тесты фонда (будущее)
+  trx/                    # pytest.mark.trx — реальные on-chain транзакции (Arbitrum Mainnet)
+                          # Кошелёк: WALLET_TRX_ADDRESS / WALLET_TRX_PRIVATE_KEY
+                          # Используют inject_trx_provider() — реальный EIP-1193 провайдер
+    market/
+      test_deposit_trx.py # smoke: gasless deposit 1 USDT → "Request submitted" modal +
+                          #   "pending approval" на странице пула;
 scripts/
   dump_markup.py          # разведка: дампит HTML и PNG страниц (результат в scripts/markup/, gitignored)
 ```
@@ -217,9 +234,22 @@ GitHub Actions, только ручной запуск (`workflow_dispatch`).
 Secrets: `TEST_POOL_ID`, `TEST_WALLET_ADDRESS`, `POOL_SINGLE_TOKEN_ID`, `POOL_MIN_DEPOSIT_ID`, `WALLET_ZERO_BALANCE`.
 Allure-отчёт → GitHub Pages (ветка `gh-pages`).
 
+## TRX-тесты (реальные on-chain транзакции)
+
+Расположены в `tests/trx/`. Используют `core/ui/helpers/trx_provider.py` — реальный EIP-1193 провайдер, инжектируемый в браузер Playwright. Поддерживает:
+- `eth_sendTransaction` — Python подписывает и отправляет raw tx на Arbitrum
+- `personal_sign` — EIP-191 подпись сообщений
+- `eth_signTypedData_v4` — EIP-712 подпись (gasless deposits: USDT Permit + UFarm DepositRequest)
+
+**Перехват wagmi publicClient:** wagmi делает прямые HTTP-запросы к `arbitrum-one-rpc.publicnode.com` (медленный, ~60s из браузера). `page.route()` перехватывает и проксирует через Python. Важно сохранять JSON-RPC `id` из запроса в ответе — иначе wagmi отбросит ответ.
+
+**Кошелёк TRX:** `WALLET_TRX_ADDRESS` / `WALLET_TRX_PRIVATE_KEY` — отдельный кошелёк, только для trx-тестов. Приватный ключ хранить ТОЛЬКО в GitHub Secrets.
+
+**Gasless deposit flow:** submit → 2x `eth_signTypedData_v4` (USDT Permit + UFarm DepositRequest) → relay → UI показывает "Request submitted" modal → "Your deposit request is pending approval". LP-баланс растёт только после одобрения управляющим фонда.
+
 ## Инжекция кошелька (UI-тесты с wallet)
 
-Используется `core/ui/wallet_injection.py` — обходит Reown-модалку через React Fiber:
+Используется `core/ui/helpers/wallet_injection.py` — обходит Reown-модалку через React Fiber:
 1. После `page.goto(..., wait_until="networkidle")` вызывается `inject_wallet(page, address)`
 2. Функция находит wagmi-конфиг в дереве React Fiber через `document.getElementById('root').__reactContainer*`
 3. Вызывает `wagmiConfig._internal.store.setState({ status: "connected", connections: Map(...) })`
@@ -262,7 +292,7 @@ Allure-отчёт → GitHub Pages (ветка `gh-pages`).
 
 **KYC-тесты (minClientTier=20):** отложены — требуют wallet signing. Когда пул требует tier=20, при tier<20 приложение показывает Terms (PROOF OF AGREEMENT), которые нельзя принять без подписи кошелька. inject_wallet не поддерживает signing.
 
-**Что не работает** (задокументировано в `wallet_injection.py`):
+**Что не работает** (задокументировано в `core/ui/helpers/wallet_injection.py`):
 - `window.ethereum` mock + `add_init_script` — AppKit не читает провайдер автоматически
 - Pre-populate localStorage — wagmi сбрасывает состояние (UID коннектора генерируется случайно)
 - Модальный UI-флоу — MetaMask показывает QR, Browser Wallet не обнаруживается в headless Chromium
@@ -305,5 +335,5 @@ context.close()  # ← закрывает и страницу, и контекс
 - [x] Шаг 3.6: UI-тесты Compliance KYT (Pool A minClientTier=10, Pool B minClientTier=0) — мок верификации
 - [x] Шаг 3.7: UI-тесты модалки кошелька (Wallet Menu Modal) — адрес/балансы, fund wallet flow, buy crypto + Unlimit widget, receive funds + clipboard, send form validation
 - [x] Шаг 3.8: UI-тесты страницы My Portfolio — cross-verified: on-chain Σ(LP×tokenPrice) = API = UI; структура Overview; UF-POINTS; сортировка карточек
-- [ ] Шаг 4: UI-тесты on-chain транзакций (signing flow, верификация через API)
-- [ ] Шаг 5: TRX-тесты (on-chain транзакции)
+- [x] Шаг 4: TRX-тесты gasless deposit — inject_trx_provider, EIP-712 signing, "Request submitted" modal
+- [ ] Шаг 5: TRX-тесты on-chain deposit (прямой, с газом) — LP-баланс растёт сразу после tx

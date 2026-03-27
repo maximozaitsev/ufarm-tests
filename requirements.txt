@@ -6,3 +6,4 @@ pydantic-settings
 python-dotenv
 pytest-xdist
 allure-pytest
+eth-account

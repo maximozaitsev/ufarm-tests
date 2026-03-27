@@ -6,7 +6,7 @@ from playwright.sync_api import sync_playwright
 
 from config.settings import settings
 from core.api.client import APIClient
-from core.ui.mocks import mock_auth_connect as _mock_auth_connect
+from core.ui.helpers.mocks import mock_auth_connect as _mock_auth_connect
 
 
 ENV_CONFIG = {
@@ -92,6 +92,18 @@ def pytest_addoption(parser):
         action="store",
         default=None,
         help="Override active wallet address (manual testing wallet with rich history, dynamic balance)",
+    )
+    parser.addoption(
+        "--wallet-trx-address",
+        action="store",
+        default=None,
+        help="Override TRX wallet address (real transaction signing tests)",
+    )
+    parser.addoption(
+        "--wallet-trx-private-key",
+        action="store",
+        default=None,
+        help="Override TRX wallet private key (NEVER store in .env, use env var or CI secret)",
     )
 
 
@@ -241,7 +253,7 @@ def page_with_wallet_on_pool(browser, base_url, test_pool_id, test_wallet_addres
     Открывает /marketplace/pool/{test_pool_id}, инжектирует кошелёк.
     Используется для тестов Deposit/Withdrawal кнопок и модалок.
     """
-    from core.ui.wallet_injection import inject_wallet
+    from core.ui.helpers.wallet_injection import inject_wallet
 
     context = browser.new_context()
     page = context.new_page()
@@ -261,7 +273,7 @@ def page_with_wallet_on_single_token_pool(browser, base_url, pool_single_token_i
 
     Используется для тестов депозит-модалки без дропдауна токенов.
     """
-    from core.ui.wallet_injection import inject_wallet
+    from core.ui.helpers.wallet_injection import inject_wallet
 
     context = browser.new_context()
     page = context.new_page()
@@ -280,7 +292,7 @@ def page_with_no_eth_wallet_on_single_token_pool(browser, base_url, pool_single_
     Используется для теста что Gasless toggle задизейблен в состоянии "включён"
     когда на кошельке нет ETH для покрытия gas fee.
     """
-    from core.ui.wallet_injection import inject_wallet
+    from core.ui.helpers.wallet_injection import inject_wallet
 
     context = browser.new_context()
     page = context.new_page()
@@ -301,7 +313,7 @@ def page_with_zero_wallet_on_min_deposit_pool(browser, base_url, pool_min_deposi
 
     Используется для теста модалки Fund wallet.
     """
-    from core.ui.wallet_injection import inject_wallet
+    from core.ui.helpers.wallet_injection import inject_wallet
 
     context = browser.new_context()
     page = context.new_page()
@@ -325,7 +337,7 @@ def page_with_zero_wallet_on_pool(browser, base_url, test_pool_id, wallet_zero_b
     Используется для проверки что кнопка Withdraw не появляется,
     когда у кошелька нет активных позиций в пуле.
     """
-    from core.ui.wallet_injection import inject_wallet
+    from core.ui.helpers.wallet_injection import inject_wallet
 
     context = browser.new_context()
     page = context.new_page()
@@ -351,7 +363,7 @@ def page_with_wallet(browser, base_url, test_wallet_address):
             page = page_with_wallet
             # кошелёк уже подключён, можно работать с UI
     """
-    from core.ui.wallet_injection import inject_wallet
+    from core.ui.helpers.wallet_injection import inject_wallet
 
     context = browser.new_context()
     page = context.new_page()

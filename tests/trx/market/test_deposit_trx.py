@@ -49,6 +49,31 @@ SIGNING_TIMEOUT_MS = 30_000
 # ── Dataclass для результата on-chain депозита ─────────────────────────────────
 
 
+ARBISCAN_TX_URL = "https://arbiscan.io/tx/{tx_hash}"
+ETHERSCAN_TX_URL = "https://etherscan.io/tx/{tx_hash}"
+
+
+def attach_tx_link(tx_hash: str, chain: str = "arbitrum") -> None:
+    """Прикрепляет ссылку на транзакцию в блокчейн-эксплорере к Allure-отчёту.
+
+    Вызывать в теле каждого теста, где выполняется on-chain транзакция.
+    Ссылка видна в отчёте независимо от результата теста.
+
+    Args:
+        tx_hash: хэш транзакции (0x...)
+        chain: "arbitrum" → Arbiscan, "ethereum" → Etherscan
+    """
+    if not tx_hash:
+        return
+    if chain == "ethereum":
+        url = ETHERSCAN_TX_URL.format(tx_hash=tx_hash)
+        name = f"Etherscan: {tx_hash[:10]}…"
+    else:
+        url = ARBISCAN_TX_URL.format(tx_hash=tx_hash)
+        name = f"Arbiscan: {tx_hash[:10]}…"
+    allure.dynamic.link(url, name=name)
+
+
 @dataclass
 class OnchainDepositResult:
     """Состояние до и после on-chain депозита (собирается фикстурой onchain_deposit).
@@ -56,6 +81,7 @@ class OnchainDepositResult:
     Фикстура хранит скриншоты и данные здесь. Каждый тест сам решает
     что показать в своём body через allure.step / allure.attach.
     """
+    tx_hash: str            # хэш on-chain транзакции (для ссылки на Arbiscan)
     deposit_confirmed_modal_appeared: bool  # UI показал модалку «Deposit confirmed»
     screenshot_modal: bytes     # скриншот модалки «Deposit confirmed»
     screenshot_after: bytes     # скриншот страницы пула после обновления UI
@@ -152,6 +178,10 @@ def onchain_deposit(page_with_trx_wallet, trx_wallet_address) -> OnchainDepositR
     with allure.step(f"Вводим {DEPOSIT_AMOUNT_ONCHAIN} USDT и отправляем"):
         modal.amount_input().fill(DEPOSIT_AMOUNT_ONCHAIN)
         modal.submit_button().click()
+        # tx_hash появляется сразу после broadcast (до on-chain подтверждения).
+        # Захватываем здесь — так hash доступен даже если подтверждение упадёт.
+        page.wait_for_function("() => !!window.__last_tx_hash", timeout=30_000)
+        tx_hash = page.evaluate("window.__last_tx_hash") or ""
 
     with allure.step("Ждём модалку «Deposit confirmed» (tx подтверждена on-chain)"):
         # On-chain flow: submit → eth_sendTransaction → Python signs + broadcasts →
@@ -173,6 +203,7 @@ def onchain_deposit(page_with_trx_wallet, trx_wallet_address) -> OnchainDepositR
         screenshot_after = page.screenshot()
 
     return OnchainDepositResult(
+        tx_hash=tx_hash,
         deposit_confirmed_modal_appeared=deposit_confirmed,
         screenshot_modal=screenshot_modal,
         screenshot_after=screenshot_after,
@@ -266,6 +297,7 @@ def test_gasless_deposit_pending_approval(page_with_trx_wallet):
 @allure.severity(allure.severity_level.CRITICAL)
 def test_onchain_deposit_confirmed_modal(onchain_deposit: OnchainDepositResult):
     """UI показал модалку «Deposit confirmed» после подтверждения tx on-chain."""
+    attach_tx_link(onchain_deposit.tx_hash)
     with allure.step("Модалка «Deposit confirmed» появилась"):
         allure.attach(
             onchain_deposit.screenshot_modal,
@@ -285,6 +317,7 @@ def test_onchain_deposit_confirmed_modal(onchain_deposit: OnchainDepositResult):
 def test_onchain_deposit_usdt_decreased(onchain_deposit: OnchainDepositResult):
     """On-chain депозит подтверждён: USDT on-chain уменьшился на ~0.5 USDT."""
     d = onchain_deposit
+    attach_tx_link(d.tx_hash)
     with allure.step(f"USDT on-chain: {d.usdt_before} → {d.usdt_after}"):
         assert d.usdt_after < d.usdt_before - Decimal("0.4"), (
             f"USDT on-chain должен уменьшиться примерно на {DEPOSIT_AMOUNT_ONCHAIN}: "
@@ -300,6 +333,7 @@ def test_onchain_deposit_usdt_decreased(onchain_deposit: OnchainDepositResult):
 def test_onchain_deposit_lp_tokens_increased(onchain_deposit: OnchainDepositResult):
     """После on-chain депозита LP-токены в секции MY BALANCE выросли."""
     d = onchain_deposit
+    attach_tx_link(d.tx_hash)
     with allure.step(f"LP tokens в UI: {d.tokens_before} → {d.tokens_after}"):
         allure.attach(
             onchain_deposit.screenshot_after,
@@ -319,6 +353,7 @@ def test_onchain_deposit_lp_tokens_increased(onchain_deposit: OnchainDepositResu
 def test_onchain_deposit_wallet_ui_decreased(onchain_deposit: OnchainDepositResult):
     """После on-chain депозита баланс в секции MY WALLET (UI) уменьшился."""
     d = onchain_deposit
+    attach_tx_link(d.tx_hash)
     with allure.step(f"MY WALLET (UI): {d.wallet_usd_after} (было ~{d.usdt_before} on-chain)"):
         allure.attach(
             onchain_deposit.screenshot_after,

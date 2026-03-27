@@ -312,10 +312,10 @@ def test_onchain_deposit_confirmed_modal(onchain_deposit: OnchainDepositResult):
 @allure.epic("Market")
 @allure.feature("Transaction")
 @allure.story("Deposit")
-@allure.title("On-chain deposit: tx confirmed on-chain (USDT decreased)")
+@allure.title("On-chain deposit: tx confirmed on-chain (wallet USDT decreased)")
 @allure.severity(allure.severity_level.CRITICAL)
 def test_onchain_deposit_usdt_decreased(onchain_deposit: OnchainDepositResult):
-    """On-chain депозит подтверждён: USDT on-chain уменьшился на ~0.5 USDT."""
+    """On-chain депозит подтверждён: USDT on-chain на кошельке уменьшился на ~0.5 USDT."""
     d = onchain_deposit
     attach_tx_link(d.tx_hash)
     with allure.step(f"USDT on-chain: {d.usdt_before} → {d.usdt_after}"):

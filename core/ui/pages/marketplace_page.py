@@ -197,27 +197,24 @@ class MarketplacePage(BasePage):
         )
 
     # ── Pool page — MY WALLET (баланс кошелька) ───────────────────────────────
-    # HTML:
-    #   <div class="..._row_..."><p>$</p>2,99</div>   ← USDT в кошельке
-    #
-    # Scope: ищем от heading «MY WALLET» — иначе _row_ слишком общий класс.
 
     def get_wallet_balance_usd(self) -> Decimal:
-        """USDT-баланс кошелька на странице пула (секция MY WALLET).
+        """USDT-баланс кошелька на странице пула (секция My wallet).
 
-        HTML: <div class="..._row_..."><p>$</p>2,99</div>
-        Scope: ищем от heading «MY WALLET» вверх по DOM.
+        Ищем <h2>My wallet</h2>, поднимаемся до корня карточки,
+        берём первый [class*=_row_] — число после <p>$</p>.
         """
         value = self.page.evaluate("""() => {
-            const heading = [...document.querySelectorAll('*')]
-                .find(el => el.childElementCount === 0 && el.textContent.trim() === 'MY WALLET');
-            if (!heading) return '';
-            let node = heading.parentElement;
-            for (let i = 0; i < 6; i++) {
+            const h2 = [...document.querySelectorAll('h2')]
+                .find(el => el.textContent.trim() === 'My wallet');
+            if (!h2) return '';
+            // h2 → _header_ → _line_ → карточка-корень (содержит _values_ c _row_)
+            let node = h2.parentElement;
+            for (let i = 0; i < 5; i++) {
                 if (!node) break;
-                const div = node.querySelector('[class*=_row_]');
-                if (div) {
-                    return [...div.childNodes]
+                const row = node.querySelector('[class*=_row_]');
+                if (row) {
+                    return [...row.childNodes]
                         .filter(n => n.nodeType === 3)
                         .map(n => n.textContent.trim())
                         .filter(Boolean)

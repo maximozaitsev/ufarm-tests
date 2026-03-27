@@ -315,13 +315,16 @@ def test_onchain_deposit_confirmed_modal(onchain_deposit: OnchainDepositResult):
 @allure.title("On-chain deposit: tx confirmed on-chain (wallet USDT decreased)")
 @allure.severity(allure.severity_level.CRITICAL)
 def test_onchain_deposit_usdt_decreased(onchain_deposit: OnchainDepositResult):
-    """On-chain депозит подтверждён: USDT on-chain на кошельке уменьшился на ~0.5 USDT."""
+    """On-chain депозит подтверждён: USDT on-chain уменьшился на сумму депозита."""
     d = onchain_deposit
     attach_tx_link(d.tx_hash)
-    with allure.step(f"USDT on-chain: {d.usdt_before} → {d.usdt_after}"):
-        assert d.usdt_after < d.usdt_before - Decimal("0.4"), (
-            f"USDT on-chain должен уменьшиться примерно на {DEPOSIT_AMOUNT_ONCHAIN}: "
-            f"{d.usdt_before} → {d.usdt_after}"
+    # Ожидаем: usdt_after ≈ usdt_before − DEPOSIT_AMOUNT_ONCHAIN (±0.01 на комиссию пула).
+    expected = d.usdt_before - Decimal(DEPOSIT_AMOUNT_ONCHAIN)
+    tolerance = Decimal("0.01")
+    with allure.step(f"USDT on-chain: {d.usdt_before} → {d.usdt_after} (ожидается ~{expected})"):
+        assert abs(d.usdt_after - expected) <= tolerance, (
+            f"USDT on-chain ожидается ~{expected} "
+            f"({d.usdt_before} − {DEPOSIT_AMOUNT_ONCHAIN}), got {d.usdt_after}"
         )
 
 
@@ -351,18 +354,22 @@ def test_onchain_deposit_lp_tokens_increased(onchain_deposit: OnchainDepositResu
 @allure.title("On-chain deposit: MY WALLET USD in UI decreased")
 @allure.severity(allure.severity_level.NORMAL)
 def test_onchain_deposit_wallet_ui_decreased(onchain_deposit: OnchainDepositResult):
-    """После on-chain депозита баланс в секции MY WALLET (UI) уменьшился."""
+    """После on-chain депозита баланс MY WALLET (UI) уменьшился на сумму депозита."""
     d = onchain_deposit
     attach_tx_link(d.tx_hash)
-    with allure.step(f"MY WALLET (UI): {d.wallet_usd_after} (было ~{d.usdt_before} on-chain)"):
+    # Reference: on-chain USDT до депозита (UI-баланс до не читался — загружается async).
+    # Ожидаем: wallet_usd_after ≈ usdt_before − DEPOSIT_AMOUNT_ONCHAIN (±0.1 на округление UI).
+    expected = d.usdt_before - Decimal(DEPOSIT_AMOUNT_ONCHAIN)
+    tolerance = Decimal("0.1")
+    with allure.step(
+        f"MY WALLET (UI): {d.wallet_usd_after} ≈ {d.usdt_before} − {DEPOSIT_AMOUNT_ONCHAIN} = {expected}"
+    ):
         allure.attach(
             onchain_deposit.screenshot_after,
             name="Pool page after deposit",
             attachment_type=allure.attachment_type.PNG,
         )
-        # Сравниваем с on-chain балансом до — reference point,
-        # т.к. UI wallet balance до депозита мог не загрузиться (async).
-        assert d.wallet_usd_after < d.usdt_before - Decimal("0.4"), (
-            f"MY WALLET (UI) должен быть меньше on-chain до ({d.usdt_before}) на ~{DEPOSIT_AMOUNT_ONCHAIN}: "
-            f"got {d.wallet_usd_after}"
+        assert abs(d.wallet_usd_after - expected) <= tolerance, (
+            f"MY WALLET (UI) ожидается ~{expected} "
+            f"({d.usdt_before} − {DEPOSIT_AMOUNT_ONCHAIN}), got {d.wallet_usd_after}"
         )

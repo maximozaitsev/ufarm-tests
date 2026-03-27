@@ -1,7 +1,0 @@
-
-  Pool: 'REF TEST', assets: 4
-    0xaf88d065... | tokenType=Token | allocation=15.75%
-    0xfd086bc7... | tokenType=Token | allocation=82.66%
-    0x4a03f37e... | tokenType=Custom_Token | allocation=1.57%
-    0x94312a60... | tokenType=Custom_Token | allocation=0.0%
-  Total allocation: 99.98%  (expected 99–101%)

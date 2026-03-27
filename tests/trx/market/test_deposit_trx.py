@@ -93,7 +93,7 @@ def page_with_trx_wallet(
 
 
 @allure.epic("Market")
-@allure.feature("UI")
+@allure.feature("Transaction")
 @allure.story("Deposit")
 @allure.title("Gasless deposit 1 USDT: relay accepts request, UI shows pending approval")
 @allure.severity(allure.severity_level.CRITICAL)

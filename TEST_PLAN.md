@@ -541,6 +541,50 @@
 
 ---
 
+### 4.7 Страница My Portfolio — `tests/ui/market/test_portfolio_page.py`
+
+> Кошелёк: `wallet_active` (0x2AB1aB42...) — активный кошелёк ручного тестирования с богатой историей депозитов на всех окружениях. Баланс постоянно меняется — тесты проверяют структуру и расчёты, не конкретные суммы.
+>
+> Фикстура: `page_on_portfolio` (module-scope) — SPA-навигация из `/marketplace` после inject_wallet; `wait_for()` дожидается ненулевого MY INVESTMENTS (данные приходят асинхронно после рендера заголовков).
+
+#### `test_my_investments_api_matches_onchain` · smoke · CRITICAL · `cross_verified`
+
+- **Что:** `Σ(balanceOf(poolAddress, wallet) × tokenPrice)` = `portfolio.totalBalance` из API.
+- **Как:** Для каждого пула с ненулевым балансом вызывает on-chain `eth_call balanceOf`, умножает на `poolMetric.tokenPrice` из API, суммирует. Сравнивает с `portfolio.totalBalance / 10^6`. Tolerance ±$0.01.
+- **Зачем:** Проверяет корректность индексера бэкенда. `poolStat.totalBalance` — агрегат API; если бэкенд считает неправильно, этот тест поймает расхождение. Браузер не нужен.
+- **Allure:** аттачмент с таблицей-разбивкой по пулам: LP on-chain / tokenPrice / value_usd / poolStat / итог.
+- **Severity:** Critical
+
+#### `test_portfolio_overview_structure` · smoke · NORMAL
+
+- **Что:** Три карточки Overview видны: My wallet, My Investments, all-time profit (с realized и unrealized строками).
+- **Как:** Проверяет `h2` заголовки и наличие `realized`/`unrealized` текстов.
+- **Зачем:** Smoke-тест структуры страницы.
+- **Severity:** Normal
+
+#### `test_portfolio_investments_ui_matches_onchain` · smoke · CRITICAL · `cross_verified`
+
+- **Что:** Значение MY INVESTMENTS в UI совпадает с on-chain расчётом.
+- **Как:** Использует тот же `portfolio_onchain_total` (session fixture, on-chain вычислено один раз). Извлекает UI-значение через JS evaluate (`[class*=_usdt_]` text node). Сравнивает с tolerance ±$0.5 (UI округляет до 1 знака, tokenPrice обновляется периодически).
+- **Зачем:** Верифицирует что UI корректно отображает данные, а данные корректно рассчитаны.
+- **Severity:** Critical
+
+#### `test_portfolio_points_match_api` · smoke · NORMAL
+
+- **Что:** UF-POINTS в UI совпадают с `portfolio.points` из API (±1).
+- **Как:** JS evaluate извлекает text node из `<span>UF-POINTS</span>` родительского `<p>`. Сравнивает с `int(portfolio_api_data["points"])`.
+- **Зачем:** Детальная верификация поинтов — в тестах лидерборда; здесь проверяем только что UI правильно отображает агрегат.
+- **Severity:** Normal
+
+#### `test_portfolio_pool_cards_sorted_by_vault_balance` · smoke · NORMAL
+
+- **Что:** Карточки пулов отсортированы по "My vault balance" по убыванию.
+- **Как:** JS evaluate собирает все `[class*=_valueManaged_]` рядом с `<p>My vault balance</p>`, возвращает список Decimal. Проверяет `balances == sorted(balances, reverse=True)`.
+- **Зачем:** Критично для UX — пользователь ожидает крупнейшие позиции первыми. Лёгко сломать незаметно при изменении сортировки.
+- **Severity:** Normal
+
+---
+
 ## 5. UI-тесты: on-chain транзакции (Шаг 4 — запланировано)
 
 > Playwright + мок-провайдер + верификация через API после действия.

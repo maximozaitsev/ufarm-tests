@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     pool_min_deposit_id: str = ""
     wallet_zero_balance: str = ""
     wallet_no_eth: str = ""
+    # Активный кошелёк для ручного тестирования — богатая история, баланс постоянно меняется.
+    # Подходит для: проверок структуры портфолио, истории транзакций, реалтайм-данных.
+    # Не подходит для: проверок конкретных сумм и стабильных балансов.
+    wallet_active: str = "0x2AB1aB42a102735B79DB03ff5fBBfA4fd63C414D"
 
     model_config = SettingsConfigDict(env_file=".env")
 

@@ -87,6 +87,12 @@ def pytest_addoption(parser):
         default=None,
         help="Override no-ETH wallet address (has USDT but no ETH for gas)",
     )
+    parser.addoption(
+        "--wallet-active",
+        action="store",
+        default=None,
+        help="Override active wallet address (manual testing wallet with rich history, dynamic balance)",
+    )
 
 
 @pytest.fixture(scope="session")
@@ -170,6 +176,18 @@ def wallet_no_eth(request):
     if not value:
         raise ValueError("WALLET_NO_ETH is not set. Add it to .env or pass --wallet-no-eth")
     return value
+
+
+@pytest.fixture(scope="session")
+def wallet_active(request):
+    """Активный кошелёк для ручного тестирования.
+
+    Имеет богатую историю депозитов/выводов на всех окружениях.
+    Баланс постоянно меняется — не использовать для проверок конкретных сумм.
+    Подходит для: структуры портфолио, истории, реалтайм-расчётов.
+    """
+    override = request.config.getoption("--wallet-active")
+    return override or settings.wallet_active
 
 
 @pytest.fixture(scope="session", autouse=True)

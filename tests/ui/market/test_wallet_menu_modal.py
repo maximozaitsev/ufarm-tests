@@ -154,7 +154,9 @@ def _navigate_to_receive_funds(page, mp: MarketplacePage) -> WalletMenuModal:
 @allure.feature("UI")
 @allure.story("Wallet Modal")
 @allure.title("Wallet modal main page: address, balances and action buttons")
+@allure.tag("cross-verified: on-chain")
 @allure.severity(allure.severity_level.CRITICAL)
+@pytest.mark.cross_verified
 def test_wallet_modal_main_page(
     page_with_wallet,
     test_wallet_address,

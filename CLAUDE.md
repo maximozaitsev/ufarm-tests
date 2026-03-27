@@ -4,6 +4,15 @@
 Подробный контекст: `TESTED_PROJECT_CONTEXT.md`
 План тестирования: `TEST_PLAN.md`
 
+## Принцип верификации финансовых данных
+
+**Это DeFi-приложение — финансовые проверки должны быть независимыми, а не доверять API.**
+
+- Балансы токенов → считать через on-chain JSON-RPC (`eth_call` / `eth_getBalance`), сверять с UI и API
+- Агрегаты (MY INVESTMENTS, all-time profit, UF-POINTS) → считать самостоятельно из детальных источников (пул за пулом, транзакция за транзакцией), сверять с итоговым значением API и UI
+- Нельзя брать значение из API и сравнивать его с UI — это проверяет только согласованность, но не корректность расчёта
+- Допустимые отклонения должны быть обоснованы (округление, задержка индексации), а не взяты с запасом
+
 ## Стек
 
 - Python 3.12+, pytest, Playwright (Chromium), requests, Pydantic, allure-pytest
@@ -56,10 +65,11 @@ conftest.py               # фикстуры: api_client, leaderboard_api_client
                           #   page_with_zero_wallet_on_min_deposit_pool (scope=module),
                           #   page_with_zero_wallet_on_pool,
                           #   pool_single_token_id, pool_min_deposit_id,
-                          #   wallet_zero_balance, wallet_no_eth
+                          #   wallet_zero_balance, wallet_no_eth, wallet_active
                           # _mock_auth_connect() — мок GET /auth/connect/{addr} И
                           #   POST /user/verification до page.goto() (предотвращает Terms)
-pytest.ini                # регистрация marks: api, ui, trx, smoke, regression, extended
+pytest.ini                # регистрация marks: api, ui, trx, smoke, regression, extended,
+                          #   cross_verified (независимая верификация — вычисляем сами, не берём из API)
 config/settings.py        # pydantic-settings, читает .env
 core/
   api/
@@ -89,6 +99,12 @@ core/
                           #   buy_crypto (токен, сумма, buy_form_wallet_address, Continue),
                           #   receive_funds (QR canvas, copy_address),
                           #   send (token dropdown, amount, textarea To, Max, Send)
+      portfolio_page.py   # PortfolioPage: /marketplace/my-portfolio;
+                          #   wait_for() — ждёт заголовков + ненулевого MY INVESTMENTS (async load),
+                          #   get_investments_usd() → Decimal (JS evaluate, class*=_usdt_),
+                          #   get_uf_points() → int (JS evaluate, span UF-POINTS),
+                          #   get_pool_vault_balances() → list[Decimal] (в порядке отображения),
+                          #   headings: my_wallet, my_investments, all_time_profit
 tests/
   api/                    # pytest.mark.api
     test_healthcheck.py
@@ -126,6 +142,12 @@ tests/
       test_kyc_kyt.py                 # smoke: Compliance KYT — мок POST /user/verification;
                           #   Pool A (minClientTier=10): passed, blocked, close, retry
                           #   Pool B (minClientTier=0): no-KYT любой tier → DEPOSIT
+      test_portfolio_page.py          # smoke: страница My Portfolio + wallet_active;
+                          #   cross_verified: Σ(balanceOf(pool) × tokenPrice) = API totalBalance = UI
+                          #   структура Overview (3 карточки + realized/unrealized),
+                          #   UF-POINTS в UI совпадают с API, сортировка карточек по vault balance
+                          #   portfolio_onchain_breakdown — разбивка on-chain по пулам (session fixture)
+                          #   portfolio.wait_for() ждёт ненулевого MY INVESTMENTS (async API load)
     fund/                 # тесты фонда (будущее)
 scripts/
   dump_markup.py          # разведка: дампит HTML и PNG страниц (результат в scripts/markup/, gitignored)
@@ -141,6 +163,10 @@ POOL_SINGLE_TOKEN_ID=<uuid>      # Pool A — single-token пул, minClientTier
 POOL_MIN_DEPOSIT_ID=<uuid>       # Pool C — пул с заметным min deposit
 WALLET_ZERO_BALANCE=<0x...>      # кошелёк с балансом < min deposit Pool C
 WALLET_NO_ETH=<0x...>            # кошелёк с небольшим USDT, но без ETH для газа
+# WALLET_ACTIVE не обязателен — дефолт задан в settings.py (0x2AB1aB42...)
+WALLET_ACTIVE=<0x...>            # активный кошелёк ручного тестирования: богатая история,
+                                 # баланс постоянно меняется. Подходит для структуры портфолио
+                                 # и реалтайм-расчётов. НЕ для проверок конкретных сумм.
 ```
 `base_url`, `fund_url`, `api_url` имеют дефолты на DEMO — в CI не нужны.
 
@@ -170,6 +196,7 @@ WALLET_NO_ETH=<0x...>            # кошелёк с небольшим USDT, н
 - `with allure.step(...)` — **русский**, содержит конкретные значения
 - `@allure.severity` — CRITICAL для финансовых инвариантов, NORMAL для структуры
 - `@allure.link` — ссылка на Swagger
+- `@allure.tag("cross-verified: on-chain")` + `@pytest.mark.cross_verified` — тесты где ожидаемое значение вычислено независимо (on-chain / per-item), а не взято из API. Запуск: `pytest -m cross_verified`
 
 ## Скриншоты в Allure (UI-тесты)
 
@@ -206,6 +233,7 @@ Allure-отчёт → GitHub Pages (ветка `gh-pages`).
 - `page_with_zero_wallet_on_pool` — Pool B + WALLET_ZERO_BALANCE. Для проверки что Withdraw кнопка не появляется без депозитов.
 - `page_with_no_eth_wallet_on_single_token_pool` — Pool A + WALLET_NO_ETH (есть USDT, нет ETH). Для теста gasless toggle locked when no ETH.
 - `page_with_whale_wallet_on_min_deposit_pool` (market conftest, scope=module) — Pool C + Binance hot wallet (`0xF977814e...`, ~173M USDT). Для теста `deposit_below_min_deposit`. Проверяет баланс при старте, скипает если < 5000 USDT.
+- `page_on_portfolio` (локальная в `test_portfolio_page.py`, scope=module) — открывает `/marketplace`, инжектирует `wallet_active`, SPA-навигация на `/my-portfolio`, ждёт `portfolio.wait_for()` (заголовки + ненулевой MY INVESTMENTS).
 
 **Почему scope=module для Pool C:** Pool C делает долгие polling-запросы (networkidle недостижим). Первый клик Deposit занимает ~15 сек (on-chain RPC). Module-scope позволяет загрузить страницу и прогреть кеш балансов один раз на все 7 тестов.
 
@@ -276,5 +304,6 @@ context.close()  # ← закрывает и страницу, и контекс
 - [x] Шаг 3.5: UI-тесты модалок депозита (Pool A + Pool B), вывода (Pool B), Fund wallet (Pool C)
 - [x] Шаг 3.6: UI-тесты Compliance KYT (Pool A minClientTier=10, Pool B minClientTier=0) — мок верификации
 - [x] Шаг 3.7: UI-тесты модалки кошелька (Wallet Menu Modal) — адрес/балансы, fund wallet flow, buy crypto + Unlimit widget, receive funds + clipboard, send form validation
+- [x] Шаг 3.8: UI-тесты страницы My Portfolio — cross-verified: on-chain Σ(LP×tokenPrice) = API = UI; структура Overview; UF-POINTS; сортировка карточек
 - [ ] Шаг 4: UI-тесты on-chain транзакций (signing flow, верификация через API)
 - [ ] Шаг 5: TRX-тесты (on-chain транзакции)

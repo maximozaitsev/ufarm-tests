@@ -1,100 +1,79 @@
 "Status","Start Time","Stop Time","Duration in ms","Parent Suite","Suite","Sub Suite","Test Class","Test Method","Name","Description"
-"passed","Fri Mar 27 14:49:51 UTC 2026","Fri Mar 27 14:49:52 UTC 2026","554","tests.ui.market","test_wallet_menu_modal","","","","Buy crypto form has token selector, amount input and continue button",""
-"passed","Fri Mar 27 14:47:26 UTC 2026","Fri Mar 27 14:47:27 UTC 2026","478","tests.ui.market","test_fund_wallet_modal","","","","Fund wallet modal has RECEIVE FUNDS button",""
-"passed","Fri Mar 27 14:45:24 UTC 2026","Fri Mar 27 14:45:24 UTC 2026","0","tests.trx.market","test_deposit_trx","","","","On-chain deposit: UI shows «Deposit confirmed» modal","UI показал модалку «Deposit confirmed» после подтверждения tx on-chain."
-"passed","Fri Mar 27 14:48:00 UTC 2026","Fri Mar 27 14:48:03 UTC 2026","3891","tests.ui.market","test_marketplace_no_wallet","","","","Header contains logo, both tabs, and Connect Wallet button",""
-"passed","Fri Mar 27 14:47:43 UTC 2026","Fri Mar 27 14:47:44 UTC 2026","810","tests.ui.market","test_kyc_kyt","","","","KYT blocked: Close button dismisses the modal","Кнопка Close закрывает модалку блокировки, страница пула остаётся."
-"skipped","Fri Mar 27 14:44:46 UTC 2026","Fri Mar 27 14:44:46 UTC 2026","0","tests.api","test_leaderboard","","","","Leaderboard entries are sorted by points descending",""
-"passed","Fri Mar 27 14:51:46 UTC 2026","Fri Mar 27 14:51:47 UTC 2026","999","tests.ui.market","test_withdraw_modal","","","","Withdraw modal: amount exceeding balance shows error","Ввод суммы больше баланса показывает ошибку 'Not enough pool tokens...'."
-"passed","Fri Mar 27 14:45:24 UTC 2026","Fri Mar 27 14:45:24 UTC 2026","0","tests.trx.market","test_deposit_trx","","","","On-chain deposit: MY WALLET USD in UI decreased","После on-chain депозита баланс в секции MY WALLET (UI) уменьшился."
-"passed","Fri Mar 27 14:46:06 UTC 2026","Fri Mar 27 14:46:07 UTC 2026","332","tests.ui.market","test_deposit_modal","","","","Enabling Gasless toggle back changes button text to Request Deposit",""
-"passed","Fri Mar 27 14:47:12 UTC 2026","Fri Mar 27 14:47:12 UTC 2026","390","tests.ui.market","test_deposit_modal","","","","Deposit modal: PROOF OF AGREEMENT appears for new user without accepted terms","Для нового пользователя (createdAt=null) при клике Deposit открывается PROOF OF AGREEMENT.
+"passed","Fri Mar 27 17:12:23 UTC 2026","Fri Mar 27 17:12:25 UTC 2026","1493","tests.ui.market","test_withdraw_modal","","","","Withdraw modal: pool token input updates withdrawal token input","Ввод случайной суммы в pool token input пересчитывает withdrawal token input.
 
-    auth/connect замокан на createdAt=null, user/verification — на 404.
+    Случайное число с 1 децималом в диапазоне (0, баланс_токенов_пула].
+    buy_coin ≈ sell_amount × tokenPrice (погрешность < 2%).
     "
-"passed","Fri Mar 27 14:48:21 UTC 2026","Fri Mar 27 14:48:28 UTC 2026","6645","tests.ui.market","test_marketplace_no_wallet","","","","Pool page shows Transactions and Actions history tabs",""
-"passed","Fri Mar 27 14:51:22 UTC 2026","Fri Mar 27 14:51:23 UTC 2026","1091","tests.ui.market","test_withdraw_modal","","","","Withdraw modal MAX button fills pool token input with full balance","Клик MAX заполняет pool token input максимальным балансом."
-"passed","Fri Mar 27 14:48:49 UTC 2026","Fri Mar 27 14:48:49 UTC 2026","118","tests.ui.market","test_marketplace_with_wallet","","","","My portfolio page is accessible with connected wallet","С подключённым кошельком клик на My portfolio ведёт на страницу портфолио, а не открывает Reown-модалку."
-"passed","Fri Mar 27 14:50:57 UTC 2026","Fri Mar 27 14:50:57 UTC 2026","480","tests.ui.market","test_withdraw_modal","","","","Withdraw modal shows pool balance matching portfolio API","Баланс в модалке вывода > 0 и соответствует данным из portfolio API с учётом tokenPrice.
+"passed","Fri Mar 27 17:07:08 UTC 2026","Fri Mar 27 17:07:08 UTC 2026","592","tests.ui.market","test_deposit_modal","","","","MAX button fills input with wallet on-chain balance","Клик MAX заполняет инпут суммой on-chain USDT баланса кошелька."
+"passed","Fri Mar 27 17:12:37 UTC 2026","Fri Mar 27 17:12:38 UTC 2026","1089","tests.ui.market","test_withdraw_modal","","","","Withdraw modal MAX button fills pool token input with full balance","Клик MAX заполняет pool token input максимальным балансом."
+"passed","Fri Mar 27 17:07:29 UTC 2026","Fri Mar 27 17:07:30 UTC 2026","257","tests.ui.market","test_deposit_modal","","","","Deposit modal opens on multi-token pool",""
+"passed","Fri Mar 27 17:12:04 UTC 2026","Fri Mar 27 17:12:06 UTC 2026","1832","tests.ui.market","test_withdraw_modal","","","","Withdraw modal opens on Withdraw button click",""
+"passed","Fri Mar 27 17:08:48 UTC 2026","Fri Mar 27 17:08:49 UTC 2026","373","tests.ui.market","test_kyc_kyt","","","","KYT passed: deposit form opens when wallet tier meets pool requirement","tier=10 (дефолтный мок) >= minClientTier=10 → открывается DEPOSIT форма."
+"passed","Fri Mar 27 17:13:14 UTC 2026","Fri Mar 27 17:13:15 UTC 2026","991","tests.ui.market","test_withdraw_modal","","","","Withdraw modal: USDT amount exceeding balance shows error","Ввод суммы USDT больше баланса через buyCoin input показывает ошибку 'Not enough pool tokens...'."
+"passed","Fri Mar 27 17:08:43 UTC 2026","Fri Mar 27 17:08:43 UTC 2026","482","tests.ui.market","test_fund_wallet_modal","","","","Fund wallet modal has RECEIVE FUNDS button",""
+"passed","Fri Mar 27 17:07:58 UTC 2026","Fri Mar 27 17:07:59 UTC 2026","822","tests.ui.market","test_deposit_modal","","","","Deposit modal: zero amount disables submit button","Ввод нулевой суммы держит кнопку submit задизейбленной."
+"passed","Fri Mar 27 17:06:07 UTC 2026","Fri Mar 27 17:06:07 UTC 2026","690","tests.api","test_healthcheck","","","","API documentation endpoint is available",""
+"passed","Fri Mar 27 17:07:19 UTC 2026","Fri Mar 27 17:07:19 UTC 2026","373","tests.ui.market","test_deposit_modal","","","","Disabling Gasless toggle changes button text to Instant Deposit",""
+"skipped","Fri Mar 27 17:06:08 UTC 2026","Fri Mar 27 17:06:08 UTC 2026","0","tests.api","test_leaderboard","","","","Leaderboard user addresses are valid Ethereum addresses",""
+"passed","Fri Mar 27 17:10:25 UTC 2026","Fri Mar 27 17:10:30 UTC 2026","5151","tests.ui.market","test_marketplace_with_wallet","","","","Withdraw button is not shown for wallet without deposits","Кнопка Withdraw не появляется если у кошелька нет активных депозитов в пуле.
+
+    Используется WALLET_ZERO_BALANCE на Pool B (TEST_POOL_ID).
+    После загрузки баланса по API кнопка Withdraw должна отсутствовать.
+    "
+"passed","Fri Mar 27 17:06:39 UTC 2026","Fri Mar 27 17:06:39 UTC 2026","0","tests.trx.market","test_deposit_trx","","","","On-chain deposit: tx confirmed on-chain (wallet USDT decreased)","On-chain депозит подтверждён: USDT on-chain уменьшился на сумму депозита."
+"passed","Fri Mar 27 17:07:40 UTC 2026","Fri Mar 27 17:07:41 UTC 2026","275","tests.ui.market","test_deposit_modal","","","","Deposit modal: default token is in pool's available token list","Тикер токена по умолчанию совпадает с одним из availableValueTokens пула."
+"passed","Fri Mar 27 17:13:33 UTC 2026","Fri Mar 27 17:13:34 UTC 2026","1026","tests.ui.market","test_withdraw_modal","","","","Withdraw submit button triggers signing flow","Клик Request Withdrawal вызывает подпись транзакции.
+
+    Ожидаемое поведение — TBD.
+    Запустить: HEADED=1 SLOWMO=800 pytest tests/ui/market/test_withdraw_modal.py::test_withdraw_triggers_signing -v -s
+    "
+"passed","Fri Mar 27 17:08:17 UTC 2026","Fri Mar 27 17:08:18 UTC 2026","685","tests.ui.market","test_deposit_modal","","","","Deposit modal: amount below min deposit disables submit and shows error","Ввод суммы ниже минимального депозита пула блокирует submit и показывает ошибку.
+
+    Pool C (POOL_MIN_DEPOSIT_ID) — min deposit = 5000 USDT.
+    Кошелёк: Binance hot wallet (публичный адрес, баланс >> 5000 USDT).
+    Вводим сумму = 1 USDT (заведомо ниже минимума).
+    "
+"passed","Fri Mar 27 17:07:46 UTC 2026","Fri Mar 27 17:07:47 UTC 2026","1023","tests.ui.market","test_deposit_modal","","","","Deposit modal: switching token in multi-token pool updates selected ticker","Переключение токена в дропдауне обновляет тикер в селекторе."
+"passed","Fri Mar 27 17:12:12 UTC 2026","Fri Mar 27 17:12:12 UTC 2026","475","tests.ui.market","test_withdraw_modal","","","","Withdraw modal shows pool balance matching portfolio API","Баланс в модалке вывода > 0 и соответствует данным из portfolio API с учётом tokenPrice.
 
     portfolio.totalBalance — стоимость инвестиции в USDT (наименьшие единицы, 6 decimals).
     Модалка показывает баланс в токенах пула (pool tokens).
     Связь: ui_balance ≈ totalBalance / 10^6 / tokenPrice (погрешность < 5%).
     "
-"passed","Fri Mar 27 14:45:49 UTC 2026","Fri Mar 27 14:45:50 UTC 2026","533","tests.ui.market","test_deposit_modal","","","","MAX button fills input with wallet on-chain balance","Клик MAX заполняет инпут суммой on-chain USDT баланса кошелька."
-"passed","Fri Mar 27 14:50:44 UTC 2026","Fri Mar 27 14:50:45 UTC 2026","525","tests.ui.market","test_wallet_menu_modal","","","","Send button becomes enabled with valid amount and address",""
-"passed","Fri Mar 27 14:47:32 UTC 2026","Fri Mar 27 14:47:32 UTC 2026","383","tests.ui.market","test_kyc_kyt","","","","KYT passed: deposit form opens when wallet tier meets pool requirement","tier=10 (дефолтный мок) >= minClientTier=10 → открывается DEPOSIT форма."
-"passed","Fri Mar 27 14:50:31 UTC 2026","Fri Mar 27 14:50:32 UTC 2026","495","tests.ui.market","test_wallet_menu_modal","","","","Send page has token dropdown, amount input, to input and send button",""
-"passed","Fri Mar 27 14:51:52 UTC 2026","Fri Mar 27 14:51:53 UTC 2026","988","tests.ui.market","test_withdraw_modal","","","","Withdraw modal: zero amount shows error","Ввод 0 в pool token input показывает ошибку 'Please indicate the withdrawal sum...'."
-"passed","Fri Mar 27 14:49:33 UTC 2026","Fri Mar 27 14:49:33 UTC 2026","106","tests.ui.market","test_portfolio_page","","","","Portfolio overview section shows all three cards","Три карточки Overview видны с правильными заголовками."
-"passed","Fri Mar 27 14:46:12 UTC 2026","Fri Mar 27 14:46:12 UTC 2026","333","tests.ui.market","test_deposit_modal","","","","Deposit modal opens on multi-token pool",""
-"passed","Fri Mar 27 14:46:18 UTC 2026","Fri Mar 27 14:46:18 UTC 2026","474","tests.ui.market","test_deposit_modal","","","","Multi-token pool deposit modal has token dropdown","В multi-token пуле клик по токен-иконке открывает список вариантов."
-"passed","Fri Mar 27 14:48:32 UTC 2026","Fri Mar 27 14:48:37 UTC 2026","4969","tests.ui.market","test_marketplace_no_wallet","","","","My Portfolio tab opens Connect Wallet modal when wallet is not connected",""
-"passed","Fri Mar 27 14:49:33 UTC 2026","Fri Mar 27 14:49:33 UTC 2026","2","tests.ui.market","test_portfolio_page","","","","UF-POINTS displayed matches API portfolio.points","UF-POINTS в UI совпадают с portfolio.points из API.
-
-    Детальная верификация поинтов производится в тестах лидерборда.
-    Здесь проверяем только что UI правильно отображает значение из API.
-    "
-"passed","Fri Mar 27 14:51:28 UTC 2026","Fri Mar 27 14:51:28 UTC 2026","535","tests.ui.market","test_withdraw_modal","","","","Withdraw modal: single-token pool has no token selector dropdown","В single-token пуле (Pool A) в модалке вывода нет дропдауна выбора токена.
-
-    Отображается только один токен без стрелки/дропдауна.
-    Используется: Pool A (POOL_SINGLE_TOKEN_ID) + TEST_WALLET_ADDRESS.
-    "
-"passed","Fri Mar 27 14:51:34 UTC 2026","Fri Mar 27 14:51:34 UTC 2026","737","tests.ui.market","test_withdraw_modal","","","","Withdraw modal: multi-token pool shows token selector dropdown","В multi-token пуле (Pool B) в модалке вывода отображается дропдаун выбора токена.
-
-    Доступные токены берутся из pool.availableValueTokens.
-    Клик на selector открывает список всех доступных токенов.
-    "
-"passed","Fri Mar 27 14:44:46 UTC 2026","Fri Mar 27 14:44:46 UTC 2026","165","tests.api","test_pool_detail","","","","Pool financials are consistent: valueManaged = totalDeposited + revenue",""
-"passed","Fri Mar 27 14:50:38 UTC 2026","Fri Mar 27 14:50:38 UTC 2026","476","tests.ui.market","test_wallet_menu_modal","","","","Send button is disabled when inputs are empty",""
-"passed","Fri Mar 27 14:48:43 UTC 2026","Fri Mar 27 14:48:43 UTC 2026","126","tests.ui.market","test_marketplace_with_wallet","","","","Connected wallet address is shown in header","page_with_wallet — страница уже открыта на /marketplace с инжектированным кошельком."
-"passed","Fri Mar 27 14:51:08 UTC 2026","Fri Mar 27 14:51:10 UTC 2026","1644","tests.ui.market","test_withdraw_modal","","","","Withdraw modal: pool token input updates withdrawal token input","Ввод случайной суммы в pool token input пересчитывает withdrawal token input.
-
-    Случайное число с 1 децималом в диапазоне (0, баланс_токенов_пула].
-    buy_coin ≈ sell_amount × tokenPrice (погрешность < 2%).
-    "
-"passed","Fri Mar 27 14:45:44 UTC 2026","Fri Mar 27 14:45:45 UTC 2026","299","tests.ui.market","test_deposit_modal","","","","Deposit modal submit button is disabled when input is empty",""
-"passed","Fri Mar 27 14:49:11 UTC 2026","Fri Mar 27 14:49:16 UTC 2026","5147","tests.ui.market","test_marketplace_with_wallet","","","","Withdraw button is not shown for wallet without deposits","Кнопка Withdraw не появляется если у кошелька нет активных депозитов в пуле.
-
-    Используется WALLET_ZERO_BALANCE на Pool B (TEST_POOL_ID).
-    После загрузки баланса по API кнопка Withdraw должна отсутствовать.
-    "
-"passed","Fri Mar 27 14:48:54 UTC 2026","Fri Mar 27 14:48:55 UTC 2026","448","tests.ui.market","test_marketplace_with_wallet","","","","Deposit and Withdrawal buttons are visible on pool page with connected wallet","С подключённым кошельком на странице пула видны кнопки Deposit и Withdrawal,
-    а не кнопка 'Connect wallet to deposit'."
-"passed","Fri Mar 27 14:49:26 UTC 2026","Fri Mar 27 14:49:26 UTC 2026","0","tests.ui.market","test_portfolio_page","","","","MY INVESTMENTS (API) matches sum of on-chain LP balances × tokenPrice","Проверяет корректность индексера: сумма on-chain LP × tokenPrice = portfolio.totalBalance.
+"passed","Fri Mar 27 17:11:58 UTC 2026","Fri Mar 27 17:11:59 UTC 2026","518","tests.ui.market","test_wallet_menu_modal","","","","Send button becomes enabled with valid amount and address",""
+"passed","Fri Mar 27 17:08:40 UTC 2026","Fri Mar 27 17:08:41 UTC 2026","482","tests.ui.market","test_fund_wallet_modal","","","","Fund wallet modal has correct title",""
+"passed","Fri Mar 27 17:11:12 UTC 2026","Fri Mar 27 17:11:13 UTC 2026","588","tests.ui.market","test_wallet_menu_modal","","","","Buy crypto continue button is disabled until valid amount is entered","Continue disabled когда инпут пустой, активен после ввода минимальной суммы (15)."
+"passed","Fri Mar 27 17:06:11 UTC 2026","Fri Mar 27 17:06:12 UTC 2026","941","tests.api","test_pools_list","","","","Pool list returns only active public pools with valid fields",""
+"skipped","Fri Mar 27 17:06:07 UTC 2026","Fri Mar 27 17:06:07 UTC 2026","0","tests.api","test_leaderboard","","","","Leaderboard response matches Pydantic model",""
+"passed","Fri Mar 27 17:08:40 UTC 2026","Fri Mar 27 17:08:40 UTC 2026","184","tests.ui.market","test_fund_wallet_modal","","","","Fund wallet modal opens when wallet balance is zero",""
+"passed","Fri Mar 27 17:07:35 UTC 2026","Fri Mar 27 17:07:35 UTC 2026","501","tests.ui.market","test_deposit_modal","","","","Multi-token pool deposit modal has token dropdown","В multi-token пуле клик по токен-иконке открывает список вариантов."
+"passed","Fri Mar 27 17:09:57 UTC 2026","Fri Mar 27 17:09:57 UTC 2026","128","tests.ui.market","test_marketplace_with_wallet","","","","Connected wallet address is shown in header","page_with_wallet — страница уже открыта на /marketplace с инжектированным кошельком."
+"passed","Fri Mar 27 17:06:09 UTC 2026","Fri Mar 27 17:06:09 UTC 2026","165","tests.api","test_pool_detail","","","","Pool asset allocations sum to ~100%",""
+"passed","Fri Mar 27 17:11:19 UTC 2026","Fri Mar 27 17:11:19 UTC 2026","453","tests.ui.market","test_wallet_menu_modal","","","","Buy crypto form shows wallet address in fund my wallet label",""
+"passed","Fri Mar 27 17:09:05 UTC 2026","Fri Mar 27 17:09:06 UTC 2026","828","tests.ui.market","test_kyc_kyt","","","","KYT blocked: re-clicking Deposit shows block modal again","После закрытия блокировки повторный клик Deposit снова показывает блокировку."
+"passed","Fri Mar 27 17:13:27 UTC 2026","Fri Mar 27 17:13:28 UTC 2026","999","tests.ui.market","test_withdraw_modal","","","","Withdraw modal: close and reopen resets inputs","После закрытия и повторного открытия модалки инпуты сброшены в начальное состояние."
+"passed","Fri Mar 27 17:10:41 UTC 2026","Fri Mar 27 17:10:41 UTC 2026","1","tests.ui.market","test_portfolio_page","","","","MY INVESTMENTS (API) matches sum of on-chain LP balances × tokenPrice","Проверяет корректность индексера: сумма on-chain LP × tokenPrice = portfolio.totalBalance.
 
     Это чистый расчётный тест — браузер не нужен.
     Если тест падает — бэкенд неправильно индексирует балансы пользователя.
     "
-"passed","Fri Mar 27 14:44:48 UTC 2026","Fri Mar 27 14:44:48 UTC 2026","167","tests.api","test_portfolio","","","","Portfolio pool balance formula: totalBalance = deposited − withdrawn + realizedPnL + unrealizedPnL",""
-"passed","Fri Mar 27 14:46:35 UTC 2026","Fri Mar 27 14:46:36 UTC 2026","728","tests.ui.market","test_deposit_modal","","","","Deposit modal: entering valid amount enables submit button","Ввод рандомной суммы в диапазоне (min_deposit, wallet_balance) активирует кнопку submit."
-"passed","Fri Mar 27 14:49:45 UTC 2026","Fri Mar 27 14:49:45 UTC 2026","448","tests.ui.market","test_wallet_menu_modal","","","","Fund wallet shows buy crypto and receive funds options",""
-"passed","Fri Mar 27 14:48:13 UTC 2026","Fri Mar 27 14:48:21 UTC 2026","7647","tests.ui.market","test_marketplace_no_wallet","","","","Pool page shows pool name, deposit block and Connect Wallet button",""
-"passed","Fri Mar 27 14:49:22 UTC 2026","Fri Mar 27 14:49:23 UTC 2026","1308","tests.ui.market","test_marketplace_with_wallet","","","","SPA navigation preserves wallet connection","SPA-навигация pool → marketplace → pool не теряет подключённый кошелёк."
-"passed","Fri Mar 27 14:49:39 UTC 2026","Fri Mar 27 14:49:39 UTC 2026","240","tests.ui.market","test_wallet_menu_modal","","","","Wallet modal main page: address, balances and action buttons","Smoke-тест главной страницы модалки кошелька.
+"passed","Fri Mar 27 17:10:47 UTC 2026","Fri Mar 27 17:10:47 UTC 2026","2","tests.ui.market","test_portfolio_page","","","","UF-POINTS displayed matches API portfolio.points","UF-POINTS в UI совпадают с portfolio.points из API.
 
-    Проверяет за один проход:
-    - модалка открывается
-    - отображается сокращённый адрес кошелька
-    - балансы USDT / USDC / ETH видны и совпадают с on-chain значениями
-    - кнопки fund wallet, Send, Disconnect присутствуют
+    Детальная верификация поинтов производится в тестах лидерборда.
+    Здесь проверяем только что UI правильно отображает значение из API.
     "
-"passed","Fri Mar 27 14:47:37 UTC 2026","Fri Mar 27 14:47:38 UTC 2026","487","tests.ui.market","test_kyc_kyt","","","","KYT blocked: wallet with insufficient tier cannot open deposit form","tier ∈ {0, 5} < minClientTier=10 → модалка 'Wallet verification issue' с кнопкой Close.
+"skipped","Fri Mar 27 17:06:08 UTC 2026","Fri Mar 27 17:06:08 UTC 2026","0","tests.api","test_leaderboard","","","","Leaderboard user addresses are unique across all pages",""
+"passed","Fri Mar 27 17:10:35 UTC 2026","Fri Mar 27 17:10:37 UTC 2026","1331","tests.ui.market","test_marketplace_with_wallet","","","","SPA navigation preserves wallet connection","SPA-навигация pool → marketplace → pool не теряет подключённый кошелёк."
+"passed","Fri Mar 27 17:10:47 UTC 2026","Fri Mar 27 17:10:47 UTC 2026","2","tests.ui.market","test_portfolio_page","","","","Pool cards are sorted by My vault balance descending","Карточки пулов отсортированы по 'My vault balance' по убыванию.
 
-    Tier выбирается случайно из допустимых значений ниже порога пула.
+    Это критично для UX: пользователь ожидает видеть крупнейшие позиции первыми.
     "
-"passed","Fri Mar 27 14:44:48 UTC 2026","Fri Mar 27 14:44:48 UTC 2026","282","tests.api","test_portfolio","","","","Portfolio returns correct structure",""
-"skipped","Fri Mar 27 14:44:46 UTC 2026","Fri Mar 27 14:44:46 UTC 2026","0","tests.api","test_leaderboard","","","","Leaderboard user addresses are valid Ethereum addresses",""
-"passed","Fri Mar 27 14:51:58 UTC 2026","Fri Mar 27 14:51:59 UTC 2026","1002","tests.ui.market","test_withdraw_modal","","","","Withdraw modal: USDT amount exceeding balance shows error","Ввод суммы USDT больше баланса через buyCoin input показывает ошибку 'Not enough pool tokens...'."
-"passed","Fri Mar 27 14:45:34 UTC 2026","Fri Mar 27 14:45:34 UTC 2026","261","tests.ui.market","test_deposit_modal","","","","Single-token pool deposit modal has no token dropdown","В single-token пуле в модалке нет комбобокса/дропдауна выбора токена."
-"passed","Fri Mar 27 14:47:17 UTC 2026","Fri Mar 27 14:47:18 UTC 2026","608","tests.ui.market","test_deposit_modal","","","","Deposit submit button triggers signing flow","Клик на кнопку submit после заполнения суммы вызывает подпись транзакции.
-
-    Ожидаемое поведение — TBD.
-    Запустить: HEADED=1 SLOWMO=800 pytest tests/ui/market/test_deposit_modal.py::test_deposit_triggers_signing -v -s
+"skipped","Fri Mar 27 17:06:08 UTC 2026","Fri Mar 27 17:06:08 UTC 2026","0","tests.api","test_points","","","","Portfolio points match leaderboard points for top addresses","
+    Берём первые 10 адресов из лидерборда и для каждого сравниваем
+    portfolio.points с leaderboard.points.
+    Оба эндпоинта — PROD ETH /api/v2.
     "
-"passed","Fri Mar 27 14:52:12 UTC 2026","Fri Mar 27 14:52:13 UTC 2026","1039","tests.ui.market","test_withdraw_modal","","","","Withdraw modal: close and reopen resets inputs","После закрытия и повторного открытия модалки инпуты сброшены в начальное состояние."
-"passed","Fri Mar 27 14:48:08 UTC 2026","Fri Mar 27 14:48:13 UTC 2026","5681","tests.ui.market","test_marketplace_no_wallet","","","","Clicking pool card navigates to pool page",""
-"passed","Fri Mar 27 14:49:33 UTC 2026","Fri Mar 27 14:49:33 UTC 2026","2","tests.ui.market","test_portfolio_page","","","","MY INVESTMENTS (UI) matches on-chain LP × tokenPrice calculation","UI 'My Investments' совпадает с независимо вычисленной суммой on-chain.
+"passed","Fri Mar 27 17:10:47 UTC 2026","Fri Mar 27 17:10:47 UTC 2026","3","tests.ui.market","test_portfolio_page","","","","MY INVESTMENTS (UI) matches on-chain LP × tokenPrice calculation","UI 'My Investments' совпадает с независимо вычисленной суммой on-chain.
 
     Цепочка верификации:
       on-chain balanceOf × tokenPrice (API) → computed_total
@@ -103,12 +82,49 @@
     Допустимое отклонение ±0.5$: UI округляет до 1 знака, tokenPrice обновляется
     периодически (не real-time), разница в обычных условиях < $0.10.
     "
-"skipped","Fri Mar 27 14:44:46 UTC 2026","Fri Mar 27 14:44:46 UTC 2026","0","tests.api","test_points","","","","Portfolio points match leaderboard points for top addresses","
-    Берём первые 10 адресов из лидерборда и для каждого сравниваем
-    portfolio.points с leaderboard.points.
-    Оба эндпоинта — PROD ETH /api/v2.
+"passed","Fri Mar 27 17:06:12 UTC 2026","Fri Mar 27 17:06:12 UTC 2026","167","tests.api","test_portfolio","","","","Portfolio totals match sum of per-pool stats",""
+"passed","Fri Mar 27 17:06:39 UTC 2026","Fri Mar 27 17:06:39 UTC 2026","329","tests.trx.market","test_deposit_trx","","","","On-chain deposit: entry appears in API cashflow (Completed)","On-chain депозит зафиксирован в API cashflow: запись со статусом Completed.
+
+    Получаем on-chain адрес пула через GET /pool/{pool_id}, затем запрашиваем
+    GET /pool/{poolAddress}/transactions/cashflows?investorAddress=...&type=Deposit.
+
+    Примечание: для on-chain депозитов requestHash == null (транзакция уходит напрямую
+    на блокчейн, минуя relay). Поэтому идентифицируем запись как самую свежую —
+    записи отсортированы по убыванию даты, наш депозит был только что.
     "
-"passed","Fri Mar 27 14:44:55 UTC 2026","Fri Mar 27 14:44:58 UTC 2026","3074","tests.trx.market","test_deposit_trx","","","","Gasless deposit 1 USDT: relay accepts request, UI shows pending approval","Безгазовый депозит 1 USDT принят relay: UI показывает 'Request submitted'.
+"passed","Fri Mar 27 17:08:29 UTC 2026","Fri Mar 27 17:08:29 UTC 2026","384","tests.ui.market","test_deposit_modal","","","","Deposit modal: PROOF OF AGREEMENT appears for new user without accepted terms","Для нового пользователя (createdAt=null) при клике Deposit открывается PROOF OF AGREEMENT.
+
+    auth/connect замокан на createdAt=null, user/verification — на 404.
+    "
+"passed","Fri Mar 27 17:09:15 UTC 2026","Fri Mar 27 17:09:19 UTC 2026","3805","tests.ui.market","test_marketplace_no_wallet","","","","Header contains logo, both tabs, and Connect Wallet button",""
+"passed","Fri Mar 27 17:10:14 UTC 2026","Fri Mar 27 17:10:14 UTC 2026","226","tests.ui.market","test_marketplace_with_wallet","","","","Deposit modal opens on Deposit button click","Клик на кнопку Deposit открывает модалку депозита с переключателем Gasless transaction."
+"passed","Fri Mar 27 17:08:34 UTC 2026","Fri Mar 27 17:08:35 UTC 2026","596","tests.ui.market","test_deposit_modal","","","","Deposit submit button triggers signing flow","Клик на кнопку submit после заполнения суммы вызывает подпись транзакции.
+
+    Ожидаемое поведение — TBD.
+    Запустить: HEADED=1 SLOWMO=800 pytest tests/ui/market/test_deposit_modal.py::test_deposit_triggers_signing -v -s
+    "
+"passed","Fri Mar 27 17:08:42 UTC 2026","Fri Mar 27 17:08:43 UTC 2026","482","tests.ui.market","test_fund_wallet_modal","","","","Fund wallet modal has BUY CRYPTO button",""
+"passed","Fri Mar 27 17:08:04 UTC 2026","Fri Mar 27 17:08:05 UTC 2026","828","tests.ui.market","test_deposit_modal","","","","Deposit modal: amount exceeding wallet balance disables submit button","Ввод суммы больше on-chain баланса кошелька делает кнопку submit недоступной."
+"passed","Fri Mar 27 17:11:39 UTC 2026","Fri Mar 27 17:11:40 UTC 2026","505","tests.ui.market","test_wallet_menu_modal","","","","Receive funds copy address puts full wallet address in clipboard",""
+"passed","Fri Mar 27 17:09:47 UTC 2026","Fri Mar 27 17:09:51 UTC 2026","4408","tests.ui.market","test_marketplace_no_wallet","","","","My Portfolio tab opens Connect Wallet modal when wallet is not connected",""
+"passed","Fri Mar 27 17:09:42 UTC 2026","Fri Mar 27 17:09:47 UTC 2026","4478","tests.ui.market","test_marketplace_no_wallet","","","","Connect Wallet button opens Connect Wallet modal",""
+"passed","Fri Mar 27 17:06:39 UTC 2026","Fri Mar 27 17:06:39 UTC 2026","0","tests.trx.market","test_deposit_trx","","","","On-chain deposit: MY WALLET USD in UI decreased","После on-chain депозита баланс MY WALLET (UI) уменьшился на сумму депозита."
+"passed","Fri Mar 27 17:06:08 UTC 2026","Fri Mar 27 17:06:08 UTC 2026","674","tests.api","test_pool_detail","","","","Pool detail returns correct structure",""
+"passed","Fri Mar 27 17:11:06 UTC 2026","Fri Mar 27 17:11:06 UTC 2026","538","tests.ui.market","test_wallet_menu_modal","","","","Buy crypto form has token selector, amount input and continue button",""
+"passed","Fri Mar 27 17:10:19 UTC 2026","Fri Mar 27 17:10:20 UTC 2026","693","tests.ui.market","test_marketplace_with_wallet","","","","Withdraw modal opens on Withdrawal button click","Клик на кнопку Withdrawal открывает модалку вывода с кнопкой 'Request Withdrawal'."
+"passed","Fri Mar 27 17:06:39 UTC 2026","Fri Mar 27 17:06:39 UTC 2026","0","tests.trx.market","test_deposit_trx","","","","On-chain deposit: UI shows «Deposit confirmed» modal","UI показал модалку «Deposit confirmed» после подтверждения tx on-chain."
+"passed","Fri Mar 27 17:06:52 UTC 2026","Fri Mar 27 17:06:52 UTC 2026","299","tests.ui.market","test_deposit_modal","","","","Single-token pool deposit modal has no token dropdown","В single-token пуле в модалке нет комбобокса/дропдауна выбора токена."
+"passed","Fri Mar 27 17:09:11 UTC 2026","Fri Mar 27 17:09:15 UTC 2026","3865","tests.ui.market","test_marketplace_no_wallet","","","","Marketplace page loads with correct title",""
+"passed","Fri Mar 27 17:08:10 UTC 2026","Fri Mar 27 17:08:11 UTC 2026","1347","tests.ui.market","test_deposit_modal","","","","Deposit modal: clearing input after fill disables submit button","Очистка инпута после ввода валидной суммы снова дизейблит кнопку submit."
+"passed","Fri Mar 27 17:06:12 UTC 2026","Fri Mar 27 17:06:12 UTC 2026","202","tests.api","test_portfolio","","","","Portfolio returns correct structure",""
+"passed","Fri Mar 27 17:09:11 UTC 2026","Fri Mar 27 17:09:11 UTC 2026","212","tests.ui.market","test_kyc_kyt","","","","No KYT pool: deposit form opens for wallet with any tier","Pool B (minClientTier=0): verification возвращает tier=0 → DEPOSIT форма.
+
+    Проверяет что пул без KYT требований не блокирует ни один кошелёк.
+    "
+"passed","Fri Mar 27 17:06:12 UTC 2026","Fri Mar 27 17:06:12 UTC 2026","165","tests.api","test_portfolio","","","","Portfolio pool balance formula: totalBalance = deposited − withdrawn + realizedPnL + unrealizedPnL",""
+"passed","Fri Mar 27 17:07:02 UTC 2026","Fri Mar 27 17:07:03 UTC 2026","311","tests.ui.market","test_deposit_modal","","","","Deposit modal submit button is disabled when input is empty",""
+"passed","Fri Mar 27 17:06:46 UTC 2026","Fri Mar 27 17:06:47 UTC 2026","384","tests.ui.market","test_deposit_modal","","","","Deposit modal opens on single-token pool",""
+"passed","Fri Mar 27 17:06:18 UTC 2026","Fri Mar 27 17:06:22 UTC 2026","3794","tests.trx.market","test_deposit_trx","","","","Gasless deposit 1 USDT: relay accepts request, UI shows pending approval","Безгазовый депозит 1 USDT принят relay: UI показывает 'Request submitted'.
 
     Gasless-режим: пользователь подписывает два EIP-712 сообщения
     (USDT EIP-2612 Permit + UFarm deposit), relay отправляет транзакцию.
@@ -121,78 +137,84 @@
     4. UI показывает модалку «Request submitted»
     5. После закрытия модалки — страница пула показывает 'pending approval'
     "
-"passed","Fri Mar 27 14:47:00 UTC 2026","Fri Mar 27 14:47:01 UTC 2026","692","tests.ui.market","test_deposit_modal","","","","Deposit modal: amount below min deposit disables submit and shows error","Ввод суммы ниже минимального депозита пула блокирует submit и показывает ошибку.
+"passed","Fri Mar 27 17:09:19 UTC 2026","Fri Mar 27 17:09:23 UTC 2026","3937","tests.ui.market","test_marketplace_no_wallet","","","","Pool cards are displayed on marketplace page",""
+"passed","Fri Mar 27 17:08:42 UTC 2026","Fri Mar 27 17:08:42 UTC 2026","481","tests.ui.market","test_fund_wallet_modal","","","","Fund wallet modal text contains network name","Текст модалки содержит название сети текущего окружения."
+"passed","Fri Mar 27 17:12:17 UTC 2026","Fri Mar 27 17:12:18 UTC 2026","668","tests.ui.market","test_withdraw_modal","","","","Withdraw modal has Request Withdrawal button",""
+"passed","Fri Mar 27 17:13:08 UTC 2026","Fri Mar 27 17:13:09 UTC 2026","1012","tests.ui.market","test_withdraw_modal","","","","Withdraw modal: zero amount shows error","Ввод 0 в pool token input показывает ошибку 'Please indicate the withdrawal sum...'."
+"passed","Fri Mar 27 17:06:39 UTC 2026","Fri Mar 27 17:06:40 UTC 2026","582","tests.trx.market","test_deposit_trx","","","","On-chain deposit: entry visible in UI «MY HISTORY» tab","On-chain депозит отображается в таблице «MY HISTORY» на странице пула."
+"passed","Fri Mar 27 17:11:46 UTC 2026","Fri Mar 27 17:11:46 UTC 2026","499","tests.ui.market","test_wallet_menu_modal","","","","Send page has token dropdown, amount input, to input and send button",""
+"passed","Fri Mar 27 17:13:20 UTC 2026","Fri Mar 27 17:13:22 UTC 2026","1468","tests.ui.market","test_withdraw_modal","","","","Withdraw modal: clearing input after fill disables submit button","Очистка инпута после ввода валидной суммы снова дизейблит кнопку Request Withdrawal."
+"passed","Fri Mar 27 17:08:54 UTC 2026","Fri Mar 27 17:08:54 UTC 2026","476","tests.ui.market","test_kyc_kyt","","","","KYT blocked: wallet with insufficient tier cannot open deposit form","tier ∈ {0, 5} < minClientTier=10 → модалка 'Wallet verification issue' с кнопкой Close.
 
-    Pool C (POOL_MIN_DEPOSIT_ID) — min deposit = 5000 USDT.
-    Кошелёк: Binance hot wallet (публичный адрес, баланс >> 5000 USDT).
-    Вводим сумму = 1 USDT (заведомо ниже минимума).
+    Tier выбирается случайно из допустимых значений ниже порога пула.
     "
-"passed","Fri Mar 27 14:44:46 UTC 2026","Fri Mar 27 14:44:46 UTC 2026","684","tests.api","test_pool_detail","","","","Pool detail returns correct structure",""
-"passed","Fri Mar 27 14:46:41 UTC 2026","Fri Mar 27 14:46:41 UTC 2026","819","tests.ui.market","test_deposit_modal","","","","Deposit modal: zero amount disables submit button","Ввод нулевой суммы держит кнопку submit задизейбленной."
-"skipped","Fri Mar 27 14:44:46 UTC 2026","Fri Mar 27 14:44:46 UTC 2026","0","tests.api","test_leaderboard","","","","Leaderboard user addresses are unique across all pages",""
-"passed","Fri Mar 27 14:47:25 UTC 2026","Fri Mar 27 14:47:25 UTC 2026","489","tests.ui.market","test_fund_wallet_modal","","","","Fund wallet modal text contains deposit token from API","Текст модалки содержит название токена из availableValueTokens пула."
-"passed","Fri Mar 27 14:51:15 UTC 2026","Fri Mar 27 14:51:16 UTC 2026","1513","tests.ui.market","test_withdraw_modal","","","","Withdraw modal: withdrawal token input updates pool token input","Ввод случайной суммы USDT в withdrawal token input пересчитывает pool token input.
+"passed","Fri Mar 27 17:10:59 UTC 2026","Fri Mar 27 17:11:00 UTC 2026","452","tests.ui.market","test_wallet_menu_modal","","","","Fund wallet shows buy crypto and receive funds options",""
+"passed","Fri Mar 27 17:08:41 UTC 2026","Fri Mar 27 17:08:42 UTC 2026","483","tests.ui.market","test_fund_wallet_modal","","","","Fund wallet modal text contains deposit token from API","Текст модалки содержит название токена из availableValueTokens пула."
+"passed","Fri Mar 27 17:08:23 UTC 2026","Fri Mar 27 17:08:24 UTC 2026","1000","tests.ui.market","test_deposit_modal","","","","Deposit modal: gasless toggle is disabled and locked ON when wallet has no ETH","Когда на кошельке нет ETH для газа, тоглер Gasless transaction:
+      - находится в состоянии ON (checked)
+      - задизейблен (disabled) — нельзя переключить на обычную транзакцию
+      - кнопка Request Deposit при этом активна (депозит без газа доступен).
+    "
+"passed","Fri Mar 27 17:10:47 UTC 2026","Fri Mar 27 17:10:47 UTC 2026","114","tests.ui.market","test_portfolio_page","","","","Portfolio overview section shows all three cards","Три карточки Overview видны с правильными заголовками."
+"passed","Fri Mar 27 17:07:24 UTC 2026","Fri Mar 27 17:07:24 UTC 2026","350","tests.ui.market","test_deposit_modal","","","","Enabling Gasless toggle back changes button text to Request Deposit",""
+"passed","Fri Mar 27 17:11:33 UTC 2026","Fri Mar 27 17:11:33 UTC 2026","540","tests.ui.market","test_wallet_menu_modal","","","","Receive funds page shows QR code and copy address button",""
+"passed","Fri Mar 27 17:09:23 UTC 2026","Fri Mar 27 17:09:29 UTC 2026","5906","tests.ui.market","test_marketplace_no_wallet","","","","Clicking pool card navigates to pool page",""
+"passed","Fri Mar 27 17:12:43 UTC 2026","Fri Mar 27 17:12:43 UTC 2026","539","tests.ui.market","test_withdraw_modal","","","","Withdraw modal: single-token pool has no token selector dropdown","В single-token пуле (Pool A) в модалке вывода нет дропдауна выбора токена.
 
-    Случайное число с 1 децималом в диапазоне (0, баланс_в_USDT].
-    sell_coin ≈ buy_amount / tokenPrice (погрешность < 2%).
+    Отображается только один токен без стрелки/дропдауна.
+    Используется: Pool A (POOL_SINGLE_TOKEN_ID) + TEST_WALLET_ADDRESS.
     "
-"passed","Fri Mar 27 14:49:33 UTC 2026","Fri Mar 27 14:49:33 UTC 2026","3","tests.ui.market","test_portfolio_page","","","","Pool cards are sorted by My vault balance descending","Карточки пулов отсортированы по 'My vault balance' по убыванию.
+"skipped","Fri Mar 27 17:06:08 UTC 2026","Fri Mar 27 17:06:08 UTC 2026","0","tests.api","test_leaderboard","","","","Leaderboard pagination invariants hold across all pages",""
+"passed","Fri Mar 27 17:10:54 UTC 2026","Fri Mar 27 17:10:54 UTC 2026","242","tests.ui.market","test_wallet_menu_modal","","","","Wallet modal main page: address, balances and action buttons","Smoke-тест главной страницы модалки кошелька.
 
-    Это критично для UX: пользователь ожидает видеть крупнейшие позиции первыми.
+    Проверяет за один проход:
+    - модалка открывается
+    - отображается сокращённый адрес кошелька
+    - балансы USDT / USDC / ETH видны и совпадают с on-chain значениями
+    - кнопки fund wallet, Send, Disconnect присутствуют
     "
-"passed","Fri Mar 27 14:47:25 UTC 2026","Fri Mar 27 14:47:26 UTC 2026","477","tests.ui.market","test_fund_wallet_modal","","","","Fund wallet modal text contains network name","Текст модалки содержит название сети текущего окружения."
-"passed","Fri Mar 27 14:44:48 UTC 2026","Fri Mar 27 14:44:48 UTC 2026","165","tests.api","test_portfolio","","","","Portfolio totals match sum of per-pool stats",""
-"passed","Fri Mar 27 14:50:04 UTC 2026","Fri Mar 27 14:50:05 UTC 2026","454","tests.ui.market","test_wallet_menu_modal","","","","Buy crypto form shows wallet address in fund my wallet label",""
-"passed","Fri Mar 27 14:52:05 UTC 2026","Fri Mar 27 14:52:07 UTC 2026","2565","tests.ui.market","test_withdraw_modal","","","","Withdraw modal: clearing input after fill disables submit button","Очистка инпута после ввода валидной суммы снова дизейблит кнопку Request Withdrawal."
-"passed","Fri Mar 27 14:46:46 UTC 2026","Fri Mar 27 14:46:47 UTC 2026","821","tests.ui.market","test_deposit_modal","","","","Deposit modal: amount exceeding wallet balance disables submit button","Ввод суммы больше on-chain баланса кошелька делает кнопку submit недоступной."
-"passed","Fri Mar 27 14:47:26 UTC 2026","Fri Mar 27 14:47:26 UTC 2026","484","tests.ui.market","test_fund_wallet_modal","","","","Fund wallet modal has BUY CRYPTO button",""
-"skipped","Fri Mar 27 14:44:45 UTC 2026","Fri Mar 27 14:44:45 UTC 2026","0","tests.api","test_leaderboard","","","","Leaderboard response matches Pydantic model",""
-"passed","Fri Mar 27 14:45:29 UTC 2026","Fri Mar 27 14:45:29 UTC 2026","366","tests.ui.market","test_deposit_modal","","","","Deposit modal opens on single-token pool",""
-"passed","Fri Mar 27 14:47:49 UTC 2026","Fri Mar 27 14:47:50 UTC 2026","1085","tests.ui.market","test_kyc_kyt","","","","KYT blocked: re-clicking Deposit shows block modal again","После закрытия блокировки повторный клик Deposit снова показывает блокировку."
-"passed","Fri Mar 27 14:46:00 UTC 2026","Fri Mar 27 14:46:01 UTC 2026","374","tests.ui.market","test_deposit_modal","","","","Disabling Gasless toggle changes button text to Instant Deposit",""
-"passed","Fri Mar 27 14:51:39 UTC 2026","Fri Mar 27 14:51:41 UTC 2026","1707","tests.ui.market","test_withdraw_modal","","","","Withdraw modal: switching output token updates ticker and recalculates amount","Переключение токена вывода обновляет тикер в селекторе и пересчитывает withdrawal input.
+"skipped","Fri Mar 27 17:06:08 UTC 2026","Fri Mar 27 17:06:08 UTC 2026","0","tests.api","test_leaderboard","","","","Leaderboard entries are sorted by points descending",""
+"passed","Fri Mar 27 17:11:25 UTC 2026","Fri Mar 27 17:11:27 UTC 2026","2055","tests.ui.market","test_wallet_menu_modal","","","","Buy crypto continue button opens Unlimit widget with correct token and network",""
+"passed","Fri Mar 27 17:07:52 UTC 2026","Fri Mar 27 17:07:53 UTC 2026","832","tests.ui.market","test_deposit_modal","","","","Deposit modal: entering valid amount enables submit button","Ввод рандомной суммы в диапазоне (min_deposit, wallet_balance) активирует кнопку submit."
+"failed","Fri Mar 27 17:06:08 UTC 2026","Fri Mar 27 17:06:09 UTC 2026","165","tests.api","test_pool_detail","","","","Pool financials are consistent: valueManaged = totalDeposited + revenue",""
+"passed","Fri Mar 27 17:08:41 UTC 2026","Fri Mar 27 17:08:41 UTC 2026","487","tests.ui.market","test_fund_wallet_modal","","","","Fund wallet modal text contains min deposit amount from API","Текст модалки содержит сумму минимального депозита из API пула."
+"passed","Fri Mar 27 17:06:40 UTC 2026","Fri Mar 27 17:06:41 UTC 2026","1628","tests.trx.market","test_withdraw_trx","","","","Gasless withdrawal request: relay accepts, UI shows success modal","Безгазовый запрос вывода принят relay: UI показывает модалку успеха.
+
+    Зависит от onchain_deposit — гарантирует наличие LP-токенов для вывода.
+    Вывод только gasless: пользователь подписывает EIP-712, relay отправляет транзакцию.
+    После успеха — модалка «Request submitted», сообщение на странице пула не появляется.
+
+    Шаги:
+    1. Ждём кнопку Withdraw (LP-токены есть после on-chain депозита)
+    2. Открываем модалку Withdraw, выбираем MAX
+    3. Нажимаем «Request Withdrawal» → EIP-712 подпись через Python
+    4. UI показывает модалку успеха
+    "
+"passed","Fri Mar 27 17:11:52 UTC 2026","Fri Mar 27 17:11:52 UTC 2026","467","tests.ui.market","test_wallet_menu_modal","","","","Send button is disabled when inputs are empty",""
+"passed","Fri Mar 27 17:12:54 UTC 2026","Fri Mar 27 17:12:56 UTC 2026","1655","tests.ui.market","test_withdraw_modal","","","","Withdraw modal: switching output token updates ticker and recalculates amount","Переключение токена вывода обновляет тикер в селекторе и пересчитывает withdrawal input.
 
     Pool B имеет несколько доступных токенов (availableValueTokens).
     После выбора альтернативного токена current_token_ticker() меняется,
     а withdrawal input (buyCoin) пересчитывается.
     "
-"passed","Fri Mar 27 14:44:46 UTC 2026","Fri Mar 27 14:44:47 UTC 2026","166","tests.api","test_pool_detail","","","","Pool asset allocations sum to ~100%",""
-"passed","Fri Mar 27 14:49:58 UTC 2026","Fri Mar 27 14:49:58 UTC 2026","567","tests.ui.market","test_wallet_menu_modal","","","","Buy crypto continue button is disabled until valid amount is entered","Continue disabled когда инпут пустой, активен после ввода минимальной суммы (15)."
-"passed","Fri Mar 27 14:45:24 UTC 2026","Fri Mar 27 14:45:24 UTC 2026","0","tests.trx.market","test_deposit_trx","","","","On-chain deposit: tx confirmed on-chain (wallet USDT decreased)","On-chain депозит подтверждён: USDT on-chain на кошельке уменьшился на ~0.5 USDT."
-"passed","Fri Mar 27 14:44:45 UTC 2026","Fri Mar 27 14:44:45 UTC 2026","674","tests.api","test_healthcheck","","","","API documentation endpoint is available",""
-"passed","Fri Mar 27 14:44:47 UTC 2026","Fri Mar 27 14:44:48 UTC 2026","791","tests.api","test_pools_list","","","","Pool list returns only active public pools with valid fields",""
-"passed","Fri Mar 27 14:46:53 UTC 2026","Fri Mar 27 14:46:54 UTC 2026","1353","tests.ui.market","test_deposit_modal","","","","Deposit modal: clearing input after fill disables submit button","Очистка инпута после ввода валидной суммы снова дизейблит кнопку submit."
-"passed","Fri Mar 27 14:50:25 UTC 2026","Fri Mar 27 14:50:25 UTC 2026","510","tests.ui.market","test_wallet_menu_modal","","","","Receive funds copy address puts full wallet address in clipboard",""
-"passed","Fri Mar 27 14:47:24 UTC 2026","Fri Mar 27 14:47:25 UTC 2026","523","tests.ui.market","test_fund_wallet_modal","","","","Fund wallet modal text contains min deposit amount from API","Текст модалки содержит сумму минимального депозита из API пула."
-"passed","Fri Mar 27 14:47:55 UTC 2026","Fri Mar 27 14:47:56 UTC 2026","355","tests.ui.market","test_kyc_kyt","","","","No KYT pool: deposit form opens for wallet with any tier","Pool B (minClientTier=0): verification возвращает tier=0 → DEPOSIT форма.
+"passed","Fri Mar 27 17:08:59 UTC 2026","Fri Mar 27 17:09:00 UTC 2026","897","tests.ui.market","test_kyc_kyt","","","","KYT blocked: Close button dismisses the modal","Кнопка Close закрывает модалку блокировки, страница пула остаётся."
+"passed","Fri Mar 27 17:06:57 UTC 2026","Fri Mar 27 17:06:58 UTC 2026","312","tests.ui.market","test_deposit_modal","","","","Deposit modal input is visible",""
+"passed","Fri Mar 27 17:06:39 UTC 2026","Fri Mar 27 17:06:39 UTC 2026","0","tests.trx.market","test_deposit_trx","","","","On-chain deposit: LP tokens in UI increased","После on-chain депозита LP-токены в секции MY BALANCE выросли."
+"passed","Fri Mar 27 17:09:29 UTC 2026","Fri Mar 27 17:09:36 UTC 2026","7278","tests.ui.market","test_marketplace_no_wallet","","","","Pool page shows pool name, deposit block and Connect Wallet button",""
+"passed","Fri Mar 27 17:10:03 UTC 2026","Fri Mar 27 17:10:03 UTC 2026","115","tests.ui.market","test_marketplace_with_wallet","","","","My portfolio page is accessible with connected wallet","С подключённым кошельком клик на My portfolio ведёт на страницу портфолио, а не открывает Reown-модалку."
+"passed","Fri Mar 27 17:13:01 UTC 2026","Fri Mar 27 17:13:02 UTC 2026","993","tests.ui.market","test_withdraw_modal","","","","Withdraw modal: amount exceeding balance shows error","Ввод суммы больше баланса показывает ошибку 'Not enough pool tokens...'."
+"passed","Fri Mar 27 17:06:09 UTC 2026","Fri Mar 27 17:06:11 UTC 2026","1840","tests.api","test_pools_list","","","","Pool list response matches Pydantic model",""
+"passed","Fri Mar 27 17:12:30 UTC 2026","Fri Mar 27 17:12:31 UTC 2026","1404","tests.ui.market","test_withdraw_modal","","","","Withdraw modal: withdrawal token input updates pool token input","Ввод случайной суммы USDT в withdrawal token input пересчитывает pool token input.
 
-    Проверяет что пул без KYT требований не блокирует ни один кошелёк.
+    Случайное число с 1 децималом в диапазоне (0, баланс_в_USDT].
+    sell_coin ≈ buy_amount / tokenPrice (погрешность < 2%).
     "
-"passed","Fri Mar 27 14:44:47 UTC 2026","Fri Mar 27 14:44:47 UTC 2026","326","tests.api","test_pools_list","","","","Pool list response matches Pydantic model",""
-"passed","Fri Mar 27 14:45:24 UTC 2026","Fri Mar 27 14:45:24 UTC 2026","0","tests.trx.market","test_deposit_trx","","","","On-chain deposit: LP tokens in UI increased","После on-chain депозита LP-токены в секции MY BALANCE выросли."
-"passed","Fri Mar 27 14:47:56 UTC 2026","Fri Mar 27 14:48:00 UTC 2026","3996","tests.ui.market","test_marketplace_no_wallet","","","","Marketplace page loads with correct title",""
-"passed","Fri Mar 27 14:47:24 UTC 2026","Fri Mar 27 14:47:24 UTC 2026","489","tests.ui.market","test_fund_wallet_modal","","","","Fund wallet modal has correct title",""
-"passed","Fri Mar 27 14:49:05 UTC 2026","Fri Mar 27 14:49:06 UTC 2026","643","tests.ui.market","test_marketplace_with_wallet","","","","Withdraw modal opens on Withdrawal button click","Клик на кнопку Withdrawal открывает модалку вывода с кнопкой 'Request Withdrawal'."
-"passed","Fri Mar 27 14:45:55 UTC 2026","Fri Mar 27 14:45:55 UTC 2026","300","tests.ui.market","test_deposit_modal","","","","Gasless toggle is ON by default",""
-"passed","Fri Mar 27 14:50:50 UTC 2026","Fri Mar 27 14:50:51 UTC 2026","1193","tests.ui.market","test_withdraw_modal","","","","Withdraw modal opens on Withdraw button click",""
-"passed","Fri Mar 27 14:45:39 UTC 2026","Fri Mar 27 14:45:39 UTC 2026","303","tests.ui.market","test_deposit_modal","","","","Deposit modal input is visible",""
-"passed","Fri Mar 27 14:49:00 UTC 2026","Fri Mar 27 14:49:00 UTC 2026","253","tests.ui.market","test_marketplace_with_wallet","","","","Deposit modal opens on Deposit button click","Клик на кнопку Deposit открывает модалку депозита с переключателем Gasless transaction."
-"passed","Fri Mar 27 14:52:18 UTC 2026","Fri Mar 27 14:52:19 UTC 2026","1092","tests.ui.market","test_withdraw_modal","","","","Withdraw submit button triggers signing flow","Клик Request Withdrawal вызывает подпись транзакции.
+"passed","Fri Mar 27 17:09:36 UTC 2026","Fri Mar 27 17:09:42 UTC 2026","6347","tests.ui.market","test_marketplace_no_wallet","","","","Pool page shows Transactions and Actions history tabs",""
+"passed","Fri Mar 27 17:12:49 UTC 2026","Fri Mar 27 17:12:49 UTC 2026","614","tests.ui.market","test_withdraw_modal","","","","Withdraw modal: multi-token pool shows token selector dropdown","В multi-token пуле (Pool B) в модалке вывода отображается дропдаун выбора токена.
 
-    Ожидаемое поведение — TBD.
-    Запустить: HEADED=1 SLOWMO=800 pytest tests/ui/market/test_withdraw_modal.py::test_withdraw_triggers_signing -v -s
+    Доступные токены берутся из pool.availableValueTokens.
+    Клик на selector открывает список всех доступных токенов.
     "
-"passed","Fri Mar 27 14:51:02 UTC 2026","Fri Mar 27 14:51:02 UTC 2026","480","tests.ui.market","test_withdraw_modal","","","","Withdraw modal has Request Withdrawal button",""
-"passed","Fri Mar 27 14:48:28 UTC 2026","Fri Mar 27 14:48:32 UTC 2026","4615","tests.ui.market","test_marketplace_no_wallet","","","","Connect Wallet button opens Connect Wallet modal",""
-"passed","Fri Mar 27 14:46:23 UTC 2026","Fri Mar 27 14:46:24 UTC 2026","279","tests.ui.market","test_deposit_modal","","","","Deposit modal: default token is in pool's available token list","Тикер токена по умолчанию совпадает с одним из availableValueTokens пула."
-"passed","Fri Mar 27 14:46:29 UTC 2026","Fri Mar 27 14:46:30 UTC 2026","1075","tests.ui.market","test_deposit_modal","","","","Deposit modal: switching token in multi-token pool updates selected ticker","Переключение токена в дропдауне обновляет тикер в селекторе."
-"skipped","Fri Mar 27 14:44:46 UTC 2026","Fri Mar 27 14:44:46 UTC 2026","0","tests.api","test_leaderboard","","","","Leaderboard pagination invariants hold across all pages",""
-"passed","Fri Mar 27 14:47:24 UTC 2026","Fri Mar 27 14:47:24 UTC 2026","165","tests.ui.market","test_fund_wallet_modal","","","","Fund wallet modal opens when wallet balance is zero",""
-"passed","Fri Mar 27 14:50:10 UTC 2026","Fri Mar 27 14:50:12 UTC 2026","2085","tests.ui.market","test_wallet_menu_modal","","","","Buy crypto continue button opens Unlimit widget with correct token and network",""
-"passed","Fri Mar 27 14:47:06 UTC 2026","Fri Mar 27 14:47:07 UTC 2026","982","tests.ui.market","test_deposit_modal","","","","Deposit modal: gasless toggle is disabled and locked ON when wallet has no ETH","Когда на кошельке нет ETH для газа, тоглер Gasless transaction:
-      - находится в состоянии ON (checked)
-      - задизейблен (disabled) — нельзя переключить на обычную транзакцию
-      - кнопка Request Deposit при этом активна (депозит без газа доступен).
-    "
-"passed","Fri Mar 27 14:50:18 UTC 2026","Fri Mar 27 14:50:19 UTC 2026","542","tests.ui.market","test_wallet_menu_modal","","","","Receive funds page shows QR code and copy address button",""
-"passed","Fri Mar 27 14:48:04 UTC 2026","Fri Mar 27 14:48:08 UTC 2026","4077","tests.ui.market","test_marketplace_no_wallet","","","","Pool cards are displayed on marketplace page",""
+"passed","Fri Mar 27 17:07:13 UTC 2026","Fri Mar 27 17:07:14 UTC 2026","306","tests.ui.market","test_deposit_modal","","","","Gasless toggle is ON by default",""
+"passed","Fri Mar 27 17:10:08 UTC 2026","Fri Mar 27 17:10:08 UTC 2026","445","tests.ui.market","test_marketplace_with_wallet","","","","Deposit and Withdrawal buttons are visible on pool page with connected wallet","С подключённым кошельком на странице пула видны кнопки Deposit и Withdrawal,
+    а не кнопка 'Connect wallet to deposit'."

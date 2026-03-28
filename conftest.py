@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+import allure
 import pytest
 from playwright.sync_api import sync_playwright
 
@@ -28,14 +29,61 @@ ENV_CONFIG = {
 }
 
 
+# Все фикстуры страницы (UI + TRX) — для поиска живой страницы при падении.
+# При добавлении новой фикстуры страницы — добавить сюда.
+_UI_PAGE_FIXTURE_NAMES = (
+    "page",
+    "page_with_wallet",
+    "page_with_wallet_on_pool",
+    "page_with_wallet_on_single_token_pool",
+    "page_with_zero_wallet_on_min_deposit_pool",
+    "page_with_zero_wallet_on_pool",
+    "page_with_no_eth_wallet_on_single_token_pool",
+    "page_with_trx_wallet",
+    "page_on_portfolio",         # test_portfolio_page.py (module-scoped, local)
+    "page_with_whale_wallet_on_min_deposit_pool",  # market conftest (module-scoped)
+    "page_with_wallet_clipboard",  # test_wallet_menu_modal.py (local)
+    "page_with_new_user_on_pool",  # test_deposit_modal.py (local)
+)
+
+
+def _attach_failure_screenshot(item: pytest.Item, when: str) -> None:
+    """Берёт скриншот страницы и прикрепляет к Allure.
+
+    Использует item.funcargs — уже разрезолвенные значения фикстур.
+    Вызывается из pytest_runtest_makereport, пока все фикстуры ещё живые.
+
+    Args:
+        item: pytest test item
+        when: фаза теста ("call" или "setup")
+    """
+    for name in _UI_PAGE_FIXTURE_NAMES:
+        page = item.funcargs.get(name)
+        if page is None:
+            continue
+        try:
+            allure.attach(
+                page.screenshot(),
+                name=f"Failure screenshot [{page.url}]",
+                attachment_type=allure.attachment_type.PNG,
+            )
+        except Exception:
+            pass
+        return
+
+
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item, call):
-    """Сохраняет результат каждой фазы теста в item.rep_<when>.
-    Нужно для фикстур, которые проверяют упал ли тест (например screenshot_on_failure).
+    """Сохраняет результат каждой фазы и берёт скриншот при падении.
+
+    Скриншот делается в фазе call/setup — ДО teardown фикстур.
+    В этот момент item.funcargs содержит живые объекты страниц в состоянии сбоя.
     """
     outcome = yield
     rep = outcome.get_result()
     setattr(item, f"rep_{rep.when}", rep)
+    if rep.failed and rep.when in ("call", "setup"):
+        _attach_failure_screenshot(item, rep.when)
 
 
 def pytest_addoption(parser):
@@ -372,3 +420,4 @@ def page_with_wallet(browser, base_url, test_wallet_address):
     inject_wallet(page, test_wallet_address)
     yield page
     context.close()
+    

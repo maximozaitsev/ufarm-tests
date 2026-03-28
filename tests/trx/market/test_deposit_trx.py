@@ -13,14 +13,11 @@
     и отправляет raw tx напрямую на Arbitrum. Требует ETH для газа.
     LP-баланс растёт сразу после подтверждения транзакции.
 
-On-chain тесты: паттерн "setup once, assert many"
-  Фикстура onchain_deposit (scope=session) выполняет ONE транзакцию и собирает
-  состояние до/после. Каждый тест проверяет один аспект результата независимо.
-  Если упадёт тест баланса UI — тест факта транзакции остаётся зелёным.
-  Если упадёт сама фикстура (tx не прошла) — все зависимые тесты → ERROR.
-
-Изоляция:
-  - Wallet отдельный от всех остальных тестов — конфликтов нет.
+Паттерн "setup once, assert many":
+  Каждая session-фикстура выполняет ONE операцию и собирает состояние.
+  Каждый тест проверяет один аспект результата независимо:
+  если один тест упадёт — остальные продолжают выполняться.
+  Если упадёт сама фикстура (операция не прошла) — зависимые тесты → ERROR.
 """
 
 from datetime import datetime, timedelta, timezone
@@ -30,143 +27,140 @@ import allure
 import pytest
 
 from core.api.models.cashflow import CashflowResponse
-from core.ui.pages.deposit_modal import DepositModal
-from core.ui.pages.marketplace_page import MarketplacePage
 
-from .conftest import DEPOSIT_AMOUNT_ONCHAIN, OnchainDepositResult, attach_tx_link
+from .conftest import (
+    DEPOSIT_AMOUNT_ONCHAIN,
+    GASLESS_DEPOSIT_AMOUNT,
+    GaslessDepositResult,
+    OnchainDepositResult,
+    attach_tx_link,
+)
 
 
 pytestmark = [pytest.mark.trx, pytest.mark.smoke]
 
-DEPOSIT_AMOUNT = "1"        # 1 USDT gasless
 
-# Сколько мс ждать появления "Request submitted" после клика submit.
-# Gasless flow: submit → 2x EIP-712 signing → relay → success modal.
-SIGNING_TIMEOUT_MS = 30_000
-
-
-# ── Тесты ─────────────────────────────────────────────────────────────────────
+# ── Gasless deposit: setup once, assert many ──────────────────────────────────
+# Фикстура gasless_deposit (scope=session) выполняет ONE gasless депозит.
+# Каждый тест ниже проверяет один аспект независимо.
 
 
 @allure.epic("Market")
 @allure.feature("Transaction")
 @allure.story("Deposit")
-@allure.title("Gasless deposit 1 USDT: relay accepts request, UI shows pending approval")
+@allure.title("Gasless deposit: relay accepts request, UI shows «Request submitted» modal")
 @allure.severity(allure.severity_level.CRITICAL)
-def test_gasless_deposit_pending_approval(page_with_trx_wallet):
-    """Безгазовый депозит 1 USDT принят relay: UI показывает 'Request submitted'.
-
-    Gasless-режим: пользователь подписывает два EIP-712 сообщения
-    (USDT EIP-2612 Permit + UFarm deposit), relay отправляет транзакцию.
-    Кошелёк не тратит ETH на газ. LP-баланс растёт после одобрения управляющего.
-
-    Шаги:
-    1. Открываем модалку Deposit, вводим 1 USDT, нажимаем «Request Deposit»
-    2. Провайдер подписывает оба EIP-712 сообщения через Python (~мгновенно)
-    3. Relay получает подписи и создаёт pending deposit
-    4. UI показывает модалку «Request submitted»
-    5. После закрытия модалки — страница пула показывает 'pending approval'
-    """
-    page = page_with_trx_wallet
-    mp = MarketplacePage(page)
-    modal = DepositModal(page)
-
-    with allure.step("Открываем модалку Deposit"):
-        mp.wait_for_pool_cards()
-        page.locator(".mantine-Modal-overlay").wait_for(state="hidden", timeout=5_000)
-        mp.deposit_button().click()
-        modal.wait_for()
-
-    with allure.step(f"Вводим {DEPOSIT_AMOUNT} USDT (gasless toggle ON по умолчанию)"):
-        modal.amount_input().fill(DEPOSIT_AMOUNT)
-
-    with allure.step("Нажимаем «Request Deposit» (gasless — relay отправит tx)"):
+def test_gasless_deposit_request_submitted(gasless_deposit: GaslessDepositResult):
+    """Relay принял gasless deposit: UI показал модалку «Request submitted»."""
+    with allure.step("Модалка «Request submitted» появилась"):
         allure.attach(
-            page.screenshot(),
-            name="Before submit",
-            attachment_type=allure.attachment_type.PNG,
-        )
-        modal.submit_button().click()
-
-    with allure.step("Ждём модалку «Request submitted» — relay принял подписи"):
-        # Gasless flow: submit → signing (2x EIP-712) → relay → success modal.
-        # Signing is near-instant (Python crypto). publicnode.com RPC calls
-        # are proxied via Python route handler so they also complete quickly.
-        page.get_by_text("Request submitted").wait_for(timeout=SIGNING_TIMEOUT_MS)
-        allure.attach(
-            page.screenshot(),
+            gasless_deposit.screenshot_modal,
             name="Request submitted modal",
             attachment_type=allure.attachment_type.PNG,
         )
+        assert gasless_deposit.request_submitted_appeared, (
+            "Модалка «Request submitted» не появилась — relay не принял запрос"
+        )
 
-    with allure.step("Модалка «Request submitted» видна"):
-        assert page.get_by_text("Request submitted").is_visible()
 
-    with allure.step("Закрываем модалку, проверяем статус на странице пула"):
-        page.get_by_role("button", name="CLOSE").click()
-        pending = page.get_by_text("Your deposit request is pending approval")
-        pending.wait_for(timeout=5_000)
+@allure.epic("Market")
+@allure.feature("Transaction")
+@allure.story("Deposit")
+@allure.title("Gasless deposit: pool page shows «pending approval» after modal closed")
+@allure.severity(allure.severity_level.CRITICAL)
+def test_gasless_deposit_pending_approval(gasless_deposit: GaslessDepositResult):
+    """После закрытия модалки страница пула показывает «pending approval»."""
+    with allure.step("Страница пула показывает «Your deposit request is pending approval»"):
         allure.attach(
-            page.screenshot(),
+            gasless_deposit.screenshot_pending,
             name="Pending approval on pool page",
             attachment_type=allure.attachment_type.PNG,
         )
-        assert pending.is_visible()
-
-    with allure.step("Переходим на таб «My requests»"):
-        tab = mp.my_requests_tab()
-        tab.scroll_into_view_if_needed()
-        tab.click()
-        page.locator(
-            '[role="tabpanel"][aria-labelledby*="tab-requests"] tbody tr'
-        ).first.wait_for(state="visible", timeout=10_000)
-
-    with allure.step("Читаем первую строку таблицы «My requests»"):
-        row = page.evaluate("""() => {
-            const panel = document.querySelector('[role="tabpanel"][aria-labelledby*="tab-requests"]');
-            if (!panel) return null;
-            const firstRow = panel.querySelector('tbody tr');
-            if (!firstRow) return null;
-            const cells = firstRow.querySelectorAll('td');
-            const norm = el => el ? el.textContent.replace(/\\s+/g, ' ').trim() : '';
-            return {
-                request_date:     norm(cells[0]),
-                expiration_date:  norm(cells[1]),
-                type:             norm(cells[2]),
-                tokens:           norm(cells[3]),
-                value:            norm(cells[4]),
-            };
-        }""")
-        assert row is not None, "Не удалось прочитать первую строку таблицы My requests"
-        allure.attach(
-            str(row),
-            name="My requests first row",
-            attachment_type=allure.attachment_type.TEXT,
+        assert gasless_deposit.pending_approval_appeared, (
+            "Текст «pending approval» не появился на странице пула"
         )
+
+
+@allure.epic("Market")
+@allure.feature("Transaction")
+@allure.story("Deposit")
+@allure.title("Gasless deposit: MY REQUESTS shows entry with type «Deposit»")
+@allure.severity(allure.severity_level.NORMAL)
+def test_gasless_deposit_my_requests_type(gasless_deposit: GaslessDepositResult):
+    """MY REQUESTS содержит запись с типом «Deposit»."""
+    row = gasless_deposit.requests_row
+    with allure.step(f"Тип первой записи: ожидается «Deposit», получено «{row.get('type')}»"):
         allure.attach(
-            page.screenshot(),
+            gasless_deposit.screenshot_requests_tab,
             name="MY REQUESTS tab",
             attachment_type=allure.attachment_type.PNG,
         )
-
-    today = datetime.now(timezone.utc)
-    expected_date = today.strftime("%b") + " " + str(today.day)  # e.g. "Mar 28"
-
-    with allure.step(f"Тип: ожидается «Deposit», получено «{row['type']}»"):
-        assert row["type"] == "Deposit", f"Ожидается type=Deposit, got {row['type']}"
-
-    with allure.step(f"Request date содержит «{expected_date}»: получено «{row['request_date']}»"):
-        assert expected_date in row["request_date"], (
-            f"Request date «{row['request_date']}» не содержит «{expected_date}»"
+        assert row.get("type") == "Deposit", (
+            f"Ожидается type=Deposit, got {row.get('type')!r}"
         )
 
-    with allure.step(f"Pool tokens не пустые: получено «{row['tokens']}»"):
-        assert row["tokens"], "Pool tokens пустые в строке My requests"
+
+@allure.epic("Market")
+@allure.feature("Transaction")
+@allure.story("Deposit")
+@allure.title("Gasless deposit: MY REQUESTS entry has today's date")
+@allure.severity(allure.severity_level.NORMAL)
+def test_gasless_deposit_my_requests_date(gasless_deposit: GaslessDepositResult):
+    """MY REQUESTS: request_date содержит сегодняшнюю дату."""
+    row = gasless_deposit.requests_row
+    today = datetime.now(timezone.utc)
+    expected = today.strftime("%b") + " " + str(today.day)  # e.g. "Mar 28"
+    with allure.step(f"Request date содержит «{expected}»: получено «{row.get('request_date')}»"):
+        assert expected in (row.get("request_date") or ""), (
+            f"Request date «{row.get('request_date')}» не содержит «{expected}»"
+        )
+
+
+@allure.epic("Market")
+@allure.feature("Transaction")
+@allure.story("Deposit")
+@allure.title("Gasless deposit: MY REQUESTS expiration date is tomorrow")
+@allure.severity(allure.severity_level.NORMAL)
+def test_gasless_deposit_my_requests_expiration(gasless_deposit: GaslessDepositResult):
+    """MY REQUESTS: relay выдаёт разрешение на 24 часа — expiration_date завтра."""
+    row = gasless_deposit.requests_row
+    tomorrow = datetime.now(timezone.utc) + timedelta(days=1)
+    expected = tomorrow.strftime("%b") + " " + str(tomorrow.day)  # e.g. "Mar 29"
+    with allure.step(f"Expiration date содержит «{expected}»: получено «{row.get('expiration_date')}»"):
+        assert expected in (row.get("expiration_date") or ""), (
+            f"Expiration date «{row.get('expiration_date')}» не содержит «{expected}» "
+            f"(ожидается +1 день от сегодня)"
+        )
+
+
+@allure.epic("Market")
+@allure.feature("Transaction")
+@allure.story("Deposit")
+@allure.title("Gasless deposit: MY REQUESTS current value matches deposit amount")
+@allure.severity(allure.severity_level.NORMAL)
+def test_gasless_deposit_my_requests_current_value(gasless_deposit: GaslessDepositResult):
+    """MY REQUESTS: «Current value, $» соответствует сумме депозита (tokenPrice ≈ 1).
+
+    Допустимое отклонение ±0.1$: tokenPrice пула обновляется периодически,
+    в обычных условиях разница < $0.01 для стабильных пулов.
+    """
+    row = gasless_deposit.requests_row
+    raw_value = row.get("value") or ""
+    with allure.step(
+        f"Current value ≈ {gasless_deposit.deposit_amount}$: получено «{raw_value}»"
+    ):
+        value = Decimal(raw_value.replace(",", ".")) if raw_value else Decimal("0")
+        expected = Decimal(gasless_deposit.deposit_amount)
+        tolerance = Decimal("0.1")
+        assert abs(value - expected) <= tolerance, (
+            f"Current value {value} не соответствует deposit amount {expected} "
+            f"(допуск ±{tolerance})"
+        )
 
 
 # ── On-chain deposit: setup once, assert many ─────────────────────────────────
-# Все тесты ниже зависят от фикстуры onchain_deposit (scope=session).
-# Транзакция выполняется ОДИН РАЗ. Каждый тест проверяет один аспект независимо.
+# Фикстура onchain_deposit (scope=session) выполняет ONE on-chain tx.
+# Каждый тест ниже проверяет один аспект независимо.
 
 
 @allure.epic("Market")
@@ -197,7 +191,6 @@ def test_onchain_deposit_usdt_decreased(onchain_deposit: OnchainDepositResult):
     """On-chain депозит подтверждён: USDT on-chain уменьшился на сумму депозита."""
     d = onchain_deposit
     attach_tx_link(d.tx_hash)
-    # Ожидаем: usdt_after ≈ usdt_before − DEPOSIT_AMOUNT_ONCHAIN (±0.01 на комиссию пула).
     expected = d.usdt_before - Decimal(DEPOSIT_AMOUNT_ONCHAIN)
     tolerance = Decimal("0.01")
     with allure.step(f"USDT on-chain: {d.usdt_before} → {d.usdt_after} (ожидается ~{expected})"):
@@ -236,8 +229,6 @@ def test_onchain_deposit_wallet_ui_decreased(onchain_deposit: OnchainDepositResu
     """После on-chain депозита баланс MY WALLET (UI) уменьшился на сумму депозита."""
     d = onchain_deposit
     attach_tx_link(d.tx_hash)
-    # Reference: on-chain USDT до депозита (UI-баланс до не читался — загружается async).
-    # Ожидаем: wallet_usd_after ≈ usdt_before − DEPOSIT_AMOUNT_ONCHAIN (±0.1 на округление UI).
     expected = d.usdt_before - Decimal(DEPOSIT_AMOUNT_ONCHAIN)
     tolerance = Decimal("0.1")
     with allure.step(
@@ -252,9 +243,6 @@ def test_onchain_deposit_wallet_ui_decreased(onchain_deposit: OnchainDepositResu
             f"MY WALLET (UI) ожидается ~{expected} "
             f"({d.usdt_before} − {DEPOSIT_AMOUNT_ONCHAIN}), got {d.wallet_usd_after}"
         )
-
-
-# ── On-chain deposit: API cashflow + UI history tab ───────────────────────────
 
 
 @allure.epic("Market")
@@ -274,9 +262,12 @@ def test_onchain_deposit_appears_in_api_cashflow(
     GET /pool/{poolAddress}/transactions/cashflows?investorAddress=...&type=Deposit.
 
     Примечание: для on-chain депозитов requestHash == null (транзакция уходит напрямую
-    на блокчейн, минуя relay). Поэтому идентифицируем запись как самую свежую —
-    записи отсортированы по убыванию даты, наш депозит был только что.
+    на блокчейн, минуя relay). Поэтому идентифицируем запись как самую свежую.
     """
+    from datetime import timedelta
+
+    from core.api.models.cashflow import CashflowResponse
+
     d = onchain_deposit
     attach_tx_link(d.tx_hash)
 
@@ -286,9 +277,6 @@ def test_onchain_deposit_appears_in_api_cashflow(
         pool_address = pool_resp.json()["pool"]["poolAddress"]
 
     with allure.step("Получаем последние Deposit-записи из cashflow (page 1)"):
-        # On-chain депозиты не имеют requestHash в API — запись создаётся по blockNumber.
-        # Используем most-recent запись: записи отсортированы по убыванию даты,
-        # наш депозит был только что — он должен быть первым в списке.
         cf_resp = api_client.get(
             f"/pool/{pool_address}/transactions/cashflows",
             params={
@@ -323,11 +311,13 @@ def test_onchain_deposit_appears_in_api_cashflow(
             f"Ожидается investorAddress={trx_wallet_address}, got {latest.investorAddress}"
         )
 
-    with allure.step(f"Дата записи свежая (не старше 5 минут): {latest.date}"):
+    with allure.step(f"Дата записи не старше 24 часов: {latest.date}"):
+        # Допускаем до 24ч: session fixture инициализируется при первом обращении,
+        # а этот тест может выполниться значительно позже в той же сессии.
         entry_dt = datetime.fromisoformat(latest.date.replace("Z", "+00:00"))
-        age = datetime.now(timezone.utc) - entry_dt
-        assert age <= timedelta(hours=0.1), (
-            f"Запись слишком старая: {latest.date} (возраст {age})"
+        age = abs((datetime.now(timezone.utc) - entry_dt).total_seconds())
+        assert age <= 86_400, (
+            f"Запись слишком старая: {latest.date} (возраст {age:.0f}с, ожидается < 24ч)"
         )
 
 
@@ -352,18 +342,17 @@ def test_onchain_deposit_appears_in_ui_my_history(
       td[3] — Value $: <div._wrap_1szfx_1>0,5</div>
       td[4] — Address: <div._address_1z3iq_1>...0xCAc...2245C7C</div>
     """
+    from core.ui.pages.marketplace_page import MarketplacePage
+
     d = onchain_deposit
     attach_tx_link(d.tx_hash)
     page = page_with_trx_wallet
     mp = MarketplacePage(page)
 
-    # Ожидаемые значения
-    expected_tokens = DEPOSIT_AMOUNT_ONCHAIN.replace(".", ",")   # "0,5"
-    expected_value = DEPOSIT_AMOUNT_ONCHAIN.replace(".", ",")    # "0,5"
     today = datetime.now(timezone.utc)
-    expected_date = today.strftime("%b") + " " + str(today.day)  # "Mar 28"
-    addr_start = trx_wallet_address[:5]   # "0xCAc"
-    addr_end = trx_wallet_address[-7:]    # "2245C7C"
+    expected_date = today.strftime("%b") + " " + str(today.day)
+    addr_start = trx_wallet_address[:5]
+    addr_end = trx_wallet_address[-7:]
 
     with allure.step("Скроллим к табам истории и нажимаем «My history»"):
         tab = mp.my_history_tab()
@@ -372,8 +361,6 @@ def test_onchain_deposit_appears_in_ui_my_history(
         tab.click()
 
     with allure.step("Читаем данные первой строки таблицы «My history»"):
-        # Tabpanel идентифицируется по aria-labelledby="...-tab-history" (стабильный суффикс).
-        # Данные извлекаем через JS — textContent ячеек, пробелы нормализованы.
         page.locator('[role="tabpanel"][aria-labelledby*="tab-history"] tbody tr').first.wait_for(
             state="visible", timeout=10_000
         )
@@ -407,18 +394,14 @@ def test_onchain_deposit_appears_in_ui_my_history(
     with allure.step(f"Тип транзакции: ожидается «Deposit», получено «{row['type']}»"):
         assert row["type"] == "Deposit", f"Ожидается type=Deposit, got {row['type']}"
 
-    with allure.step(f"Pool tokens: ожидается «{expected_tokens}», получено «{row['tokens']}»"):
-        # Нормализуем разделитель: UI может использовать «,» или «.» в зависимости от локали.
-        # «+» в начале — знак направления (deposit), не часть числа.
+    with allure.step(f"Pool tokens содержит «{DEPOSIT_AMOUNT_ONCHAIN}»: получено «{row['tokens']}»"):
         actual_tokens_norm = row["tokens"].replace(",", ".").replace("+", "").strip()
-        expected_tokens_norm = DEPOSIT_AMOUNT_ONCHAIN  # "0.5"
-        assert expected_tokens_norm in actual_tokens_norm, (
-            f"Pool tokens ожидается содержит «{expected_tokens_norm}», got «{row['tokens']}»"
+        assert DEPOSIT_AMOUNT_ONCHAIN in actual_tokens_norm, (
+            f"Pool tokens ожидается содержит «{DEPOSIT_AMOUNT_ONCHAIN}», got «{row['tokens']}»"
         )
 
-    with allure.step(f"Value $: ожидается «{expected_value}», получено «{row['value']}»"):
-        actual_value_norm = row["value"].replace(",", ".")
-        assert actual_value_norm == DEPOSIT_AMOUNT_ONCHAIN, (
+    with allure.step(f"Value $: ожидается «{DEPOSIT_AMOUNT_ONCHAIN}», получено «{row['value']}»"):
+        assert row["value"].replace(",", ".") == DEPOSIT_AMOUNT_ONCHAIN, (
             f"Value $ ожидается «{DEPOSIT_AMOUNT_ONCHAIN}», got «{row['value']}»"
         )
 

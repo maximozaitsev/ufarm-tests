@@ -73,6 +73,13 @@ conftest.py               # фикстуры: api_client, leaderboard_api_client
                           #   wallet_zero_balance, wallet_no_eth, wallet_active
                           # _mock_auth_connect() — мок GET /auth/connect/{addr} И
                           #   POST /user/verification до page.goto() (предотвращает Terms)
+                          # скриншоты при падении: хук pytest_runtest_makereport +
+                          #   _attach_failure_screenshot(item) через item.funcargs.get() —
+                          #   чистый dict-lookup без side effects, срабатывает в фазе call/setup
+                          #   ДО teardown фикстур (страница живая, показывает момент сбоя);
+                          #   _UI_PAGE_FIXTURE_NAMES — кортеж всех имён page-фикстур включая
+                          #   локальные (page_on_portfolio, page_with_whale_wallet_on_min_deposit_pool,
+                          #   page_with_wallet_clipboard, page_with_new_user_on_pool, page_with_trx_wallet)
 pytest.ini                # регистрация marks: api, ui, trx, smoke, regression, extended,
                           #   cross_verified (независимая верификация — вычисляем сами, не берём из API)
 config/settings.py        # pydantic-settings, читает .env
@@ -101,8 +108,9 @@ core/
                           #   get_pool_balance_tokens() → float ([class*=_tokens_]),
                           #   wait_for_pool_tokens_above(threshold) — ждёт LP > threshold;
                           #   pool page MY WALLET: get_wallet_balance_usd() → Decimal ([class*=_row_]);
-                          #   history tabs: my_history_tab(), history_table_rows(),
-                          #   wait_for_history_row_with_text(text)
+                          #   history tabs: my_history_tab(), my_requests_tab(),
+                          #   history_table_rows(), wait_for_history_row_with_text(text);
+                          #   my_requests_tab() — таб pending gasless deposits/withdrawals
       deposit_modal.py    # DepositModal: инпут, MAX, gasless toggle, submit (#poolDepositConfirm),
                           #   token_selector() → [class*='current'], token_selector_arrow(),
                           #   current_token_ticker() → парсит [class*='balance'] p,
@@ -121,7 +129,7 @@ core/
       portfolio_page.py   # PortfolioPage: /marketplace/my-portfolio;
                           #   wait_for() — ждёт заголовков + ненулевого MY INVESTMENTS (async load),
                           #   get_investments_usd() → Decimal (JS evaluate, class*=_usdt_),
-                          #   get_uf_points() → int (JS evaluate, span UF-POINTS),
+                          #   get_uf_points() → int (JS evaluate, span "UFARM POINTS" — без дефиса),
                           #   get_pool_vault_balances() → list[Decimal] (в порядке отображения),
                           #   headings: my_wallet, my_investments, all_time_profit
 tests/
@@ -135,7 +143,8 @@ tests/
   api/
     conftest.py           # leaderboard_reachable (skip при 403 от Cloudflare/CI IP-блокировки)
   ui/
-    conftest.py           # screenshot_on_failure (autouse)
+    conftest.py           # пустой — только комментарий; скриншоты при падении обрабатываются
+                          #   в корневом conftest.py через хук pytest_runtest_makereport
     market/               # pytest.mark.ui
       conftest.py         # pool_info_single_token, pool_info_multi_token, pool_info_min_deposit,
                           # wallet_usdt_balance, wallet_portfolio, network_name
@@ -172,17 +181,34 @@ tests/
                           # Кошелёк: WALLET_TRX_ADDRESS / WALLET_TRX_PRIVATE_KEY
                           # Используют inject_trx_provider() — реальный EIP-1193 провайдер
     market/
-      conftest.py         # session-scope fixtures: trx_wallet_address, trx_wallet_private_key,
-                          #   page_with_trx_wallet, onchain_deposit (OnchainDepositResult);
+      conftest.py         # session-scope fixtures (3 штуки — паттерн "setup once, assert many"):
+                          #   gasless_deposit (GaslessDepositResult) — 1 USDT gasless, relay;
+                          #   onchain_deposit (OnchainDepositResult) — 0.5 USDT on-chain, direct tx;
+                          #   gasless_withdrawal (GaslessWithdrawalResult) — MAX LP gasless, relay;
+                          #   Порядок в сессии: gasless_deposit → onchain_deposit → gasless_withdrawal
+                          #   (определяется алфавитным порядком файлов + зависимостью withdrawal от onchain)
                           #   attach_tx_link(tx_hash, chain) → allure.dynamic.link() → Arbiscan/Etherscan
-      test_deposit_trx.py # smoke: gasless deposit 1 USDT → "Request submitted" modal +
-                          #   "pending approval" на странице пула;
-                          #   on-chain deposit 0.5 USDT → паттерн "setup once, assert many":
-                          #   фикстура onchain_deposit (scope=session) делает ONE tx, 6 тестов независимо:
-                          #   "Deposit confirmed" modal; USDT on-chain −; LP tokens UI +; MY WALLET UI −;
-                          #   запись в API cashflow (Completed); строка в MY HISTORY tab (UI screenshot);
-      test_withdraw_trx.py # smoke: gasless withdrawal → "Request submitted" modal;
-                          #   зависит от onchain_deposit (session) — LP-токены гарантированы;
+                          #   _read_my_requests_first_row(page) → dict (JS, нормализованные пробелы)
+                          #   Константы: GASLESS_DEPOSIT_AMOUNT="1", DEPOSIT_AMOUNT_ONCHAIN="0.5"
+      test_deposit_trx.py # smoke: паттерн "setup once, assert many" для обоих режимов:
+                          #   gasless_deposit fixture → 6 независимых тестов:
+                          #     request_submitted (CRITICAL); pending_approval (CRITICAL);
+                          #     my_requests_type; my_requests_date; my_requests_expiration (завтра);
+                          #     my_requests_current_value (≈ deposit_amount ±0.1$)
+                          #   onchain_deposit fixture → 7 независимых тестов:
+                          #     confirmed_modal (CRITICAL); usdt_decreased (CRITICAL);
+                          #     lp_tokens_increased; wallet_ui_decreased;
+                          #     api_cashflow (Completed, requestHash=null);
+                          #     ui_my_history (дата, тип, tokens, value $, адрес)
+      test_withdraw_trx.py # smoke: паттерн "setup once, assert many":
+                          #   gasless_withdrawal fixture → 6 независимых тестов:
+                          #     request_submitted (CRITICAL);
+                          #     my_requests_type; my_requests_date; my_requests_expiration (завтра);
+                          #     my_requests_tokens (≈ withdrawal_amount ±0.01 LP);
+                          #     api_cashflow (CRITICAL: requestHash≠null — отличие от on-chain,
+                          #       status=Pending|Completed — зависит от withdraw_delay пула,
+                          #       TEST_POOL_ID withdraw_delay=1s → auto-Completed мгновенно,
+                          #       poolAddress, investorAddress, дата свежая)
 scripts/
   dump_markup.py          # разведка: дампит HTML и PNG страниц (результат в scripts/markup/, gitignored)
 ```
@@ -263,7 +289,7 @@ Allure-отчёт → GitHub Pages (ветка `gh-pages`).
 
 **Кошелёк TRX:** `WALLET_TRX_ADDRESS` / `WALLET_TRX_PRIVATE_KEY` — отдельный кошелёк, только для trx-тестов. Приватный ключ хранить ТОЛЬКО в GitHub Secrets.
 
-**Gasless deposit flow:** submit → 2x `eth_signTypedData_v4` (USDT Permit + UFarm DepositRequest) → relay → UI показывает "Request submitted" modal → "Your deposit request is pending approval". LP-баланс растёт только после одобрения управляющим фонда.
+**Gasless deposit flow:** submit → 2x `eth_signTypedData_v4` (USDT Permit + UFarm DepositRequest) → relay → UI показывает "Request submitted" modal → "Your deposit request is pending approval". LP-баланс растёт только после одобрения управляющим фонда. Запись появляется в таблице MY REQUESTS (колонки: Request date, Expiration date, Type, Pool tokens, Current value, $); идентифицируется через `[role="tabpanel"][aria-labelledby*="tab-requests"]`.
 
 ## Инжекция кошелька (UI-тесты с wallet)
 
@@ -352,6 +378,8 @@ context.close()  # ← закрывает и страницу, и контекс
 - [x] Шаг 3.5: UI-тесты модалок депозита (Pool A + Pool B), вывода (Pool B), Fund wallet (Pool C)
 - [x] Шаг 3.6: UI-тесты Compliance KYT (Pool A minClientTier=10, Pool B minClientTier=0) — мок верификации
 - [x] Шаг 3.7: UI-тесты модалки кошелька (Wallet Menu Modal) — адрес/балансы, fund wallet flow, buy crypto + Unlimit widget, receive funds + clipboard, send form validation
-- [x] Шаг 3.8: UI-тесты страницы My Portfolio — cross-verified: on-chain Σ(LP×tokenPrice) = API = UI; структура Overview; UF-POINTS; сортировка карточек
-- [x] Шаг 4: TRX-тесты gasless deposit — inject_trx_provider, EIP-712 signing, "Request submitted" modal
-- [x] Шаг 5: TRX-тесты on-chain deposit (прямой, с газом) — "Deposit confirmed" modal, LP tokens в UI растут, USDT on-chain уменьшается
+- [x] Шаг 3.8: UI-тесты страницы My Portfolio — cross-verified: on-chain Σ(LP×tokenPrice) = API = UI; структура Overview; UF-POINTS (span "UFARM POINTS"); сортировка карточек
+- [x] Шаг 4: TRX-тесты gasless deposit — 6 тестов: "Request submitted", "pending approval", MY REQUESTS (type, date, expiration=завтра, current value ≈ amount)
+- [x] Шаг 5: TRX-тесты on-chain deposit — 7 тестов: "Deposit confirmed", USDT↓ on-chain, LP↑ UI, MY WALLET↓ UI, API cashflow (Completed, requestHash=null), MY HISTORY tab
+- [x] Шаг 6: TRX-тесты gasless withdrawal — 6 тестов: "Request submitted", MY REQUESTS (type, date, expiration=завтра, tokens ≈ MAX), API cashflow (Pending, requestHash≠null)
+- [x] Инфраструктура: 3 session-fixtures с паттерном "setup once, assert many"; скриншоты при падении через hook (item.funcargs.get, фаза call/setup)

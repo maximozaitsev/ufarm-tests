@@ -96,6 +96,15 @@ class MarketplacePage(BasePage):
             has_text=re.compile(r"my history", re.IGNORECASE)
         )
 
+    def my_requests_tab(self):
+        """Таб «My requests» в секции истории на странице пула.
+
+        Содержит pending gasless deposits/withdrawals, ожидающих одобрения управляющего.
+        """
+        return self.page.get_by_role("tab").filter(
+            has_text=re.compile(r"my requests", re.IGNORECASE)
+        )
+
     def history_table_rows(self):
         """Строки таблицы истории транзакций (видимые после выбора таба).
 

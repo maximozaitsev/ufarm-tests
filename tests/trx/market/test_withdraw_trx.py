@@ -14,6 +14,8 @@ Withdraw только gasless: пользователь подписывает E
   на всю сессию — переиспользуется и в test_deposit_trx.py.
 """
 
+from datetime import datetime, timezone
+
 import allure
 import pytest
 
@@ -90,3 +92,53 @@ def test_gasless_withdraw_request(page_with_trx_wallet, onchain_deposit):
 
     with allure.step("Закрываем модалку"):
         page.get_by_role("button", name="CLOSE").click()
+
+    with allure.step("Переходим на таб «My requests»"):
+        tab = mp.my_requests_tab()
+        tab.scroll_into_view_if_needed()
+        tab.click()
+        page.locator(
+            '[role="tabpanel"][aria-labelledby*="tab-requests"] tbody tr'
+        ).first.wait_for(state="visible", timeout=10_000)
+
+    with allure.step("Читаем первую строку таблицы «My requests»"):
+        row = page.evaluate("""() => {
+            const panel = document.querySelector('[role="tabpanel"][aria-labelledby*="tab-requests"]');
+            if (!panel) return null;
+            const firstRow = panel.querySelector('tbody tr');
+            if (!firstRow) return null;
+            const cells = firstRow.querySelectorAll('td');
+            const norm = el => el ? el.textContent.replace(/\\s+/g, ' ').trim() : '';
+            return {
+                request_date:     norm(cells[0]),
+                expiration_date:  norm(cells[1]),
+                type:             norm(cells[2]),
+                tokens:           norm(cells[3]),
+                value:            norm(cells[4]),
+            };
+        }""")
+        assert row is not None, "Не удалось прочитать первую строку таблицы My requests"
+        allure.attach(
+            str(row),
+            name="My requests first row",
+            attachment_type=allure.attachment_type.TEXT,
+        )
+        allure.attach(
+            page.screenshot(),
+            name="MY REQUESTS tab",
+            attachment_type=allure.attachment_type.PNG,
+        )
+
+    today = datetime.now(timezone.utc)
+    expected_date = today.strftime("%b") + " " + str(today.day)  # e.g. "Mar 28"
+
+    with allure.step(f"Тип: ожидается «Withdrawal», получено «{row['type']}»"):
+        assert row["type"] == "Withdrawal", f"Ожидается type=Withdrawal, got {row['type']}"
+
+    with allure.step(f"Request date содержит «{expected_date}»: получено «{row['request_date']}»"):
+        assert expected_date in row["request_date"], (
+            f"Request date «{row['request_date']}» не содержит «{expected_date}»"
+        )
+
+    with allure.step(f"Pool tokens не пустые: получено «{row['tokens']}»"):
+        assert row["tokens"], "Pool tokens пустые в строке My requests"

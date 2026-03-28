@@ -105,12 +105,12 @@ class PortfolioPage:
     def get_uf_points(self) -> int:
         """Парсит значение UF-POINTS из карточки My Investments.
 
-        HTML: <p class="..._points_...">69,742<span>UF-POINTS</span></p>
+        HTML: <p class="..._points_...">69,742<span>UFARM POINTS</span></p>
         Возвращает целое число, например 69742.
         """
         text = self.page.evaluate("""() => {
             const span = [...document.querySelectorAll('span')]
-                .find(s => s.textContent.trim() === 'UF-POINTS');
+                .find(s => s.textContent.trim() === 'UFARM POINTS');
             if (!span) return '';
             const p = span.parentElement;
             if (!p) return '';

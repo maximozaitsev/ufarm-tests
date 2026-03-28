@@ -358,13 +358,18 @@ def test_onchain_deposit_appears_in_ui_my_history(
         assert row["type"] == "Deposit", f"Ожидается type=Deposit, got {row['type']}"
 
     with allure.step(f"Pool tokens: ожидается «{expected_tokens}», получено «{row['tokens']}»"):
-        assert expected_tokens in row["tokens"], (
-            f"Pool tokens ожидается содержит «{expected_tokens}», got «{row['tokens']}»"
+        # Нормализуем разделитель: UI может использовать «,» или «.» в зависимости от локали.
+        # «+» в начале — знак направления (deposit), не часть числа.
+        actual_tokens_norm = row["tokens"].replace(",", ".").replace("+", "").strip()
+        expected_tokens_norm = DEPOSIT_AMOUNT_ONCHAIN  # "0.5"
+        assert expected_tokens_norm in actual_tokens_norm, (
+            f"Pool tokens ожидается содержит «{expected_tokens_norm}», got «{row['tokens']}»"
         )
 
     with allure.step(f"Value $: ожидается «{expected_value}», получено «{row['value']}»"):
-        assert row["value"] == expected_value, (
-            f"Value $ ожидается «{expected_value}», got «{row['value']}»"
+        actual_value_norm = row["value"].replace(",", ".")
+        assert actual_value_norm == DEPOSIT_AMOUNT_ONCHAIN, (
+            f"Value $ ожидается «{DEPOSIT_AMOUNT_ONCHAIN}», got «{row['value']}»"
         )
 
     with allure.step(f"Дата содержит «{expected_date}»: получено «{row['date']}»"):

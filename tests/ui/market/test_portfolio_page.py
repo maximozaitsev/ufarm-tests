@@ -258,6 +258,27 @@ def test_portfolio_points_match_api(page_on_portfolio, portfolio_api_data):
     portfolio = PortfolioPage(page_on_portfolio)
     api_points = int(portfolio_api_data["points"])
 
+    with allure.step(f"Ждём загрузки UF-POINTS в UI (api={api_points})"):
+        # UF-POINTS загружаются отдельно от MY INVESTMENTS — wait_for() их не ждёт.
+        # Если API вернул ненулевое значение — ждём пока UI тоже покажет ненулевое.
+        if api_points > 0:
+            page_on_portfolio.wait_for_function(
+                """() => {
+                    const span = [...document.querySelectorAll('span')]
+                        .find(s => s.textContent.trim() === 'UFARM POINTS');
+                    if (!span) return false;
+                    const p = span.parentElement;
+                    if (!p) return false;
+                    const text = [...p.childNodes]
+                        .filter(n => n.nodeType === 3)
+                        .map(n => n.textContent.trim())
+                        .filter(Boolean)
+                        .join('');
+                    return !!text && text !== '0';
+                }""",
+                timeout=15_000,
+            )
+
     with allure.step(f"Считываем UF-POINTS из UI"):
         ui_points = portfolio.get_uf_points()
 

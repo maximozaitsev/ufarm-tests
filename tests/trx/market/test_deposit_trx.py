@@ -289,12 +289,31 @@ def test_onchain_deposit_appears_in_api_cashflow(
 def test_onchain_deposit_appears_in_ui_my_history(
     onchain_deposit: OnchainDepositResult,
     page_with_trx_wallet,
+    trx_wallet_address,
 ):
-    """On-chain депозит отображается в таблице «MY HISTORY» на странице пула."""
+    """On-chain депозит отображается первой строкой таблицы «My history».
+
+    Проверяем конкретную запись — дату, тип, Pool tokens, Value $ и адрес кошелька.
+
+    Структура строки (из DOM):
+      td[0] — Date:  <div._wrap_kkuze_1>Mar 28<p._grey_kkuze_7>10:33</p></div>
+      td[1] — Type:  <div._deposit_ms8pn_1>Deposit</div>
+      td[2] — Tokens: <p>+</p><div._wrap_1szfx_1>0,5</div>
+      td[3] — Value $: <div._wrap_1szfx_1>0,5</div>
+      td[4] — Address: <div._address_1z3iq_1>...0xCAc...2245C7C</div>
+    """
     d = onchain_deposit
     attach_tx_link(d.tx_hash)
     page = page_with_trx_wallet
     mp = MarketplacePage(page)
+
+    # Ожидаемые значения
+    expected_tokens = DEPOSIT_AMOUNT_ONCHAIN.replace(".", ",")   # "0,5"
+    expected_value = DEPOSIT_AMOUNT_ONCHAIN.replace(".", ",")    # "0,5"
+    today = datetime.now(timezone.utc)
+    expected_date = today.strftime("%b") + " " + str(today.day)  # "Mar 28"
+    addr_start = trx_wallet_address[:5]   # "0xCAc"
+    addr_end = trx_wallet_address[-7:]    # "2245C7C"
 
     with allure.step("Скроллим к табам истории и нажимаем «My history»"):
         tab = mp.my_history_tab()
@@ -302,14 +321,59 @@ def test_onchain_deposit_appears_in_ui_my_history(
         tab.scroll_into_view_if_needed()
         tab.click()
 
-    with allure.step("Ждём строку с типом «Deposit» в таблице истории"):
-        mp.wait_for_history_row_with_text("Deposit")
+    with allure.step("Читаем данные первой строки таблицы «My history»"):
+        # Tabpanel идентифицируется по aria-labelledby="...-tab-history" (стабильный суффикс).
+        # Данные извлекаем через JS — textContent ячеек, пробелы нормализованы.
+        page.locator('[role="tabpanel"][aria-labelledby*="tab-history"] tbody tr').first.wait_for(
+            state="visible", timeout=10_000
+        )
+        row = page.evaluate("""() => {
+            const panel = document.querySelector('[role="tabpanel"][aria-labelledby*="tab-history"]');
+            if (!panel) return null;
+            const firstRow = panel.querySelector('tbody tr');
+            if (!firstRow) return null;
+            const cells = firstRow.querySelectorAll('td');
+            const norm = el => el ? el.textContent.replace(/\\s+/g, ' ').trim() : '';
+            return {
+                date:    norm(cells[0]),
+                type:    norm(cells[1]),
+                tokens:  norm(cells[2]),
+                value:   norm(cells[3]),
+                address: norm(cells[4]),
+            };
+        }""")
+        assert row is not None, "Не удалось прочитать первую строку таблицы My history"
+        allure.attach(
+            str(row),
+            name="First row data",
+            attachment_type=allure.attachment_type.TEXT,
+        )
         allure.attach(
             page.screenshot(),
-            name="MY HISTORY tab with deposit row",
+            name="MY HISTORY tab",
             attachment_type=allure.attachment_type.PNG,
         )
 
-    with allure.step("Строка с «Deposit» видна в таблице"):
-        rows = mp.history_table_rows().filter(has_text="Deposit")
-        assert rows.count() > 0, "Строка «Deposit» не найдена в таблице MY HISTORY"
+    with allure.step(f"Тип транзакции: ожидается «Deposit», получено «{row['type']}»"):
+        assert row["type"] == "Deposit", f"Ожидается type=Deposit, got {row['type']}"
+
+    with allure.step(f"Pool tokens: ожидается «{expected_tokens}», получено «{row['tokens']}»"):
+        assert expected_tokens in row["tokens"], (
+            f"Pool tokens ожидается содержит «{expected_tokens}», got «{row['tokens']}»"
+        )
+
+    with allure.step(f"Value $: ожидается «{expected_value}», получено «{row['value']}»"):
+        assert row["value"] == expected_value, (
+            f"Value $ ожидается «{expected_value}», got «{row['value']}»"
+        )
+
+    with allure.step(f"Дата содержит «{expected_date}»: получено «{row['date']}»"):
+        assert expected_date in row["date"], (
+            f"Дата строки «{row['date']}» не содержит «{expected_date}»"
+        )
+
+    with allure.step(f"Адрес: начало «{addr_start}» и конец «{addr_end}» кошелька TRX"):
+        addr = row["address"]
+        assert addr_start.lower() in addr.lower() and addr_end.lower() in addr.lower(), (
+            f"Адрес строки «{addr}» не соответствует кошельку {trx_wallet_address}"
+        )

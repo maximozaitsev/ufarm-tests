@@ -23,6 +23,7 @@ On-chain тесты: паттерн "setup once, assert many"
   - Wallet отдельный от всех остальных тестов — конфликтов нет.
 """
 
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 import allure
@@ -258,9 +259,26 @@ def test_onchain_deposit_appears_in_api_cashflow(
         assert cf.data, "Cashflow вернул пустой список — ни одного Deposit не найдено"
 
     latest = cf.data[0]
-    with allure.step(f"Последняя Deposit-запись: type={latest.type}, status={latest.status}, date={latest.date}"):
+    with allure.step(f"Последняя запись: type={latest.type}, status={latest.status}, date={latest.date}"):
         assert latest.type == "Deposit", f"Ожидается type=Deposit, got {latest.type}"
         assert latest.status == "Completed", f"Ожидается status=Completed, got {latest.status}"
+
+    with allure.step(f"poolAddress совпадает: {latest.poolAddress}"):
+        assert latest.poolAddress.lower() == pool_address.lower(), (
+            f"Ожидается poolAddress={pool_address}, got {latest.poolAddress}"
+        )
+
+    with allure.step(f"investorAddress совпадает: {latest.investorAddress}"):
+        assert latest.investorAddress.lower() == trx_wallet_address.lower(), (
+            f"Ожидается investorAddress={trx_wallet_address}, got {latest.investorAddress}"
+        )
+
+    with allure.step(f"Дата записи свежая (не старше 5 минут): {latest.date}"):
+        entry_dt = datetime.fromisoformat(latest.date.replace("Z", "+00:00"))
+        age = datetime.now(timezone.utc) - entry_dt
+        assert age <= timedelta(hours=0.1), (
+            f"Запись слишком старая: {latest.date} (возраст {age})"
+        )
 
 
 @allure.epic("Market")

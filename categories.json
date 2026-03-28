@@ -1,0 +1,37 @@
+[
+  {
+    "name": "On-chain tx failure",
+    "matchedStatuses": ["failed", "broken"],
+    "messageRegex": ".*__last_tx_hash.*|.*wait_for_tx.*|.*Deposit confirmed.*не появилась.*|.*tx не прошла.*|.*TimeoutError.*window\\.__last_tx_hash.*"
+  },
+  {
+    "name": "Relay rejected request",
+    "matchedStatuses": ["failed"],
+    "messageRegex": ".*relay не принял.*|.*Request submitted.*не появилась.*|.*request_submitted_appeared.*"
+  },
+  {
+    "name": "API indexer mismatch",
+    "matchedStatuses": ["failed"],
+    "messageRegex": ".*Cashflow вернул пустой.*|.*requestHash.*null.*|.*requestHash=null.*|.*не зарегистрирован relay.*|.*poolAddress.*got.*0x.*|.*investorAddress.*got.*0x.*"
+  },
+  {
+    "name": "Financial invariant violation",
+    "matchedStatuses": ["failed"],
+    "messageRegex": ".*mismatch.*tolerance.*|.*не совпадает.*допуск.*|.*не сходится.*|.*allDeposited.*|.*totalBalance.*mismatch.*|.*MY INVESTMENTS.*|.*diff.*tolerance.*"
+  },
+  {
+    "name": "MY REQUESTS data mismatch",
+    "matchedStatuses": ["failed"],
+    "messageRegex": ".*Ожидается type=.*|.*request_date.*не содержит.*|.*expiration_date.*не содержит.*|.*Pool tokens.*не совпадает.*|.*Current value.*|.*withdrawal_amount.*"
+  },
+  {
+    "name": "UI timeout",
+    "matchedStatuses": ["failed", "broken"],
+    "messageRegex": ".*Timeout.*waiting for.*|.*TimeoutError.*|.*wait_for_selector.*|.*timeout.*exceeded.*|.*тайм-аут.*"
+  },
+  {
+    "name": "Infrastructure / environment error",
+    "matchedStatuses": ["broken"],
+    "messageRegex": ".*ConnectionError.*|.*Connection refused.*|.*503.*|.*502.*|.*SSLError.*"
+  }
+]

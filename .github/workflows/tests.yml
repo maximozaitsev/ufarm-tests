@@ -102,6 +102,13 @@ jobs:
             cp -r gh-pages/history allure-results/history
           fi
 
+      - name: Copy categories.json into results
+        if: always()
+        run: |
+          if [ -f categories.json ]; then
+            cp categories.json allure-results/categories.json
+          fi
+
       - name: Generate Allure report
         if: always()
         run: allure generate allure-results -o allure-report --clean
